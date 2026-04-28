@@ -160,12 +160,12 @@ export default function MovieDetailsPage({ movie, onClose }: MovieDetailsPagePro
 
           {/* Genres */}
           <div className="flex flex-wrap gap-2 mb-6">
-            {Array.isArray(movie.genre_ids) && getGenreNames(movie.genre_ids).map((genre, index) => (
+            {Array.isArray(movie.genre_ids) && movie.genre_ids.map((genreId, index) => (
               <span
                 key={index}
                 className="px-3 py-1 bg-white/10 rounded-full text-sm text-gray-300"
               >
-                {genre}
+                {getGenreNames([genreId])}
               </span>
             ))}
           </div>
