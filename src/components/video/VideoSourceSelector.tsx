@@ -1,6 +1,6 @@
 import React from 'react';
 import { motion } from 'motion/react';
-import { Video, Zap, PlayCircle } from 'lucide-react';
+import { Video, PlayCircle } from 'lucide-react';
 import { type VideoSource } from '../../services/movieService';
 
 interface VideoSourceSelectorProps {
@@ -10,9 +10,8 @@ interface VideoSourceSelectorProps {
 }
 
 const sources = [
-  { id: 'vidsrc' as VideoSource, name: 'VidSrc', icon: Video, color: 'red' },
-  { id: 'embedsu' as VideoSource, name: 'Embed.su', icon: Zap, color: 'blue' },
   { id: 'vidsrcpro' as VideoSource, name: 'VidSrc.pro', icon: PlayCircle, color: 'green' },
+  { id: 'vidsrc' as VideoSource, name: 'VidSrc', icon: Video, color: 'red' },
 ];
 
 export default function VideoSourceSelector({ currentSource, onSourceChange, disabled = false }: VideoSourceSelectorProps) {

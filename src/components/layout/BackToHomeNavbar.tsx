@@ -26,7 +26,7 @@ export default function BackToHomeNavbar({ isVisible, onBackToHome, searchQuery 
                 className="flex items-center gap-2 px-6 py-2 bg-red-600 hover:bg-red-700 rounded-lg transition-colors"
               >
                 <Home className="w-4 h-4 text-white" />
-                <span className="text-white font-medium">Clear Search & Go Home</span>
+                <span className="text-white font-medium">back!</span>
               </motion.button>
             </div>
           </div>

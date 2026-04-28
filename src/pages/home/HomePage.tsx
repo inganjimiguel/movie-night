@@ -10,6 +10,7 @@ import SophisticatedSidePanels from '../../components/layout/SophisticatedSidePa
 import BackToHomeNavbar from '../../components/layout/BackToHomeNavbar';
 import AllMovies from '../../components/movies/AllMovies';
 import useMovieBrowser from '../../hooks/useMovieBrowser';
+import { searchMoviesByLetter } from '../../services/movieService';
 import '../../styles/responsive.css';
 
 interface HomePageProps {
@@ -37,6 +38,8 @@ export default function HomePage({ navigateTo }: HomePageProps = {}) {
     resetToBrowse,
     setIsMuted,
     setSearchQuery,
+    setSearchResults,
+    setIsSearching,
   } = useMovieBrowser();
 
     const [filteredResults, setFilteredResults] = useState<any[]>([]);
@@ -60,6 +63,13 @@ export default function HomePage({ navigateTo }: HomePageProps = {}) {
     // For now, we'll just trigger a search
     setSearchQuery(query);
     handleSearch({ preventDefault: () => {} } as any);
+  };
+
+  const handleSearchByLetter = async (letter: string) => {
+    const results = await searchMoviesByLetter(letter);
+    setSearchQuery(letter);
+    setSearchResults(results);
+    setIsSearching(true);
   };
 
   const handleBackToHome = () => {
@@ -112,7 +122,12 @@ export default function HomePage({ navigateTo }: HomePageProps = {}) {
 
       {/* Optimized Search */}
       <div className="px-4 sm:px-6 lg:px-8 py-6 pt-20">
-        <OptimizedSearch onSearch={handleOptimizedSearch} onDirectPlay={handleDirectPlay} />
+        <OptimizedSearch 
+          onSearch={handleOptimizedSearch} 
+          onDirectPlay={handleDirectPlay} 
+          onSearchByLetter={handleSearchByLetter} 
+          externalQuery={searchQuery}
+        />
       </div>
 
       {searchQuery && filteredResults.length > 0 ? (

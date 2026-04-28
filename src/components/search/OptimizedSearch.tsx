@@ -5,12 +5,24 @@ import { Search, X, Play } from 'lucide-react';
 interface OptimizedSearchProps {
   onSearch: (query: string) => void;
   onDirectPlay: (query: string) => void;
+  onSearchByLetter?: (letter: string) => void;
   className?: string;
+  externalQuery?: string;
 }
 
-export default function OptimizedSearch({ onSearch, onDirectPlay, className = '' }: OptimizedSearchProps) {
+export default function OptimizedSearch({ onSearch, onDirectPlay, onSearchByLetter, className = '', externalQuery }: OptimizedSearchProps) {
   const [query, setQuery] = useState('');
   const [isExpanded, setIsExpanded] = useState(false);
+  const [showLetterSearch, setShowLetterSearch] = useState(false);
+
+  const letters = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ'.split('');
+
+  // Sync local query with external query when it changes
+  useEffect(() => {
+    if (externalQuery !== undefined) {
+      setQuery(externalQuery);
+    }
+  }, [externalQuery]);
 
   useEffect(() => {
     const timer = setTimeout(() => {
@@ -30,6 +42,14 @@ export default function OptimizedSearch({ onSearch, onDirectPlay, className = ''
 
   const clearSearch = () => {
     setQuery('');
+  };
+
+  const handleLetterClick = (letter: string) => {
+    if (onSearchByLetter) {
+      onSearchByLetter(letter);
+      setQuery(letter);
+      setShowLetterSearch(false);
+    }
   };
 
   return (
@@ -88,6 +108,40 @@ export default function OptimizedSearch({ onSearch, onDirectPlay, className = ''
             <Play className="w-5 h-5" />
           </motion.button>
         </motion.div>
+
+        {/* Letter Search Toggle */}
+        {onSearchByLetter && (
+          <button
+            onClick={() => setShowLetterSearch(!showLetterSearch)}
+            className="mt-3 text-sm text-gray-400 hover:text-white transition-colors"
+          >
+            {showLetterSearch ? 'Hide letter search' : 'Search by letter'}
+          </button>
+        )}
+
+        {/* Letter Search Grid */}
+        <AnimatePresence>
+          {showLetterSearch && onSearchByLetter && (
+            <motion.div
+              initial={{ opacity: 0, height: 0 }}
+              animate={{ opacity: 1, height: 'auto' }}
+              exit={{ opacity: 0, height: 0 }}
+              className="mt-4 grid grid-cols-7 sm:grid-cols-9 gap-2"
+            >
+              {letters.map((letter) => (
+                <motion.button
+                  key={letter}
+                  whileHover={{ scale: 1.1 }}
+                  whileTap={{ scale: 0.9 }}
+                  onClick={() => handleLetterClick(letter)}
+                  className="w-10 h-10 rounded-lg bg-white/10 hover:bg-red-600/50 text-white font-bold transition-colors flex items-center justify-center"
+                >
+                  {letter}
+                </motion.button>
+              ))}
+            </motion.div>
+          )}
+        </AnimatePresence>
       </div>
     </div>
   );

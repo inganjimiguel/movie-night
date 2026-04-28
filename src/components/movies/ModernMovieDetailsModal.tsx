@@ -55,12 +55,14 @@ export default function ModernMovieDetailsModal({
   const isLiked = movie ? isFavorite(movie.id) : false;
   const isInList = movie ? isWatchLater(movie.id) : false;
 
-  const currentVideoUrl = movie && isPlaying ? getVideoUrl(movie.id, videoSource) : null;
+  const currentVideoUrl = movie && isPlaying ? (playerUrl || getVideoUrl(movie.id, videoSource)) : null;
 
   useEffect(() => {
     if (movie) {
       setIsImageLoaded(false);
       setActiveTab('overview');
+      // Reset to vidsrcpro when movie changes
+      setVideoSource('vidsrcpro');
     }
   }, [movie]);
 
@@ -172,7 +174,7 @@ export default function ModernMovieDetailsModal({
                 onDoubleClick={onClose}
               >
                 <iframe
-                  key={currentVideoUrl}
+                  key={`${currentVideoUrl}-${videoSource}`}
                   src={currentVideoUrl || ''}
                   className="w-full h-full object-contain"
                   allowFullScreen

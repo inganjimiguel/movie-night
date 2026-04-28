@@ -1,5 +1,5 @@
 import {useEffect, useState, type FormEvent} from 'react';
-import {getMovieTrailerEmbedUrl, getTrendingMovies, searchMovies, getVidsrcUrl, type MovieData} from '../services/movieService';
+import {getTrendingMovies, searchMovies, getVidsrcUrl, type MovieData} from '../services/movieService';
 
 export default function useMovieBrowser() {
   const [movies, setMovies] = useState<MovieData[]>([]);
@@ -114,5 +114,7 @@ export default function useMovieBrowser() {
     resetToBrowse,
     setIsMuted,
     setSearchQuery,
+    setSearchResults,
+    setIsSearching,
   };
 }

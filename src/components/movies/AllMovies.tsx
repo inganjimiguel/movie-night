@@ -1,7 +1,7 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { motion } from 'motion/react';
-import { Film, ChevronDown } from 'lucide-react';
-import { type MovieData } from '../../services/movieService';
+import { Film, ChevronDown, Loader2 } from 'lucide-react';
+import { getPopularMoviesByYearRange, type MovieData } from '../../services/movieService';
 import ModernMovieCard from './ModernMovieCard';
 
 interface AllMoviesProps {
@@ -321,86 +321,108 @@ const mockMoviesByYear: Record<number, MockMovie[]> = {
     { id: 275, title: "Edward Scissorhands", year: 1990, rating: 7.7, overview: "A gentle man, with scissors for hands, is brought into a new community...", poster: "/e.jpg" },
   ],
   1989: [
-    { id: 89, title: "Indiana Jones and the Last Crusade", year: 1989, rating: 7.8, overview: "In 1938, after his father Professor Henry Jones, Sr. goes missing while pursuing the Holy Grail...", poster: "/i.jpg" },
-    { id: 620, title: "Ghostbusters II", year: 1989, rating: 6.5, overview: "The discovery of a massive river of ectoplasm and a resurgence of spectral activity allows the staff of Ghostbusters to revive the business...", poster: "/g.jpg" },
-    { id: 453, title: "The Little Mermaid", year: 1989, rating: 7.3, overview: "A mermaid princess makes a Faustian bargain in an attempt to become human and win a prince's love...", poster: "/l.jpg" },
-    { id: 10201, title: "Honey, I Shrunk the Kids", year: 1989, rating: 6.3, overview: "The scientist father of a teenage girl and boy accidentally shrinks his and two other neighborhood teens...", poster: "/h.jpg" },
+    { id: 948, title: "Indiana Jones and the Last Crusade", year: 1989, rating: 7.8, overview: "In 1938, after his father Professor Henry Jones, Sr goes missing while pursuing the Holy Grail...", poster: "/i.jpg" },
+    { id: 710, title: "Ghostbusters II", year: 1989, rating: 6.5, overview: "The discovery of a massive river of ectoplasm and a resurgence of spectral activity allows the staff of Ghostbusters to revive the business...", poster: "/g.jpg" },
+    { id: 11224, title: "The Little Mermaid", year: 1989, rating: 7.3, overview: "A mermaid princess makes a Faustian bargain in an attempt to become human and win a prince's love...", poster: "/l.jpg" },
+    { id: 9295, title: "Honey, I Shrunk the Kids", year: 1989, rating: 6.3, overview: "The scientist father of a teenage girl and boy accidentally shrinks his and two other neighborhood teens...", poster: "/h.jpg" },
     { id: 8467, title: "Dead Poets Society", year: 1989, rating: 8.1, overview: "Maverick teacher John Keating uses poetry to embolden his boarding school students to new heights of self-expression...", poster: "/d.jpg" },
   ],
   1988: [
     { id: 562, title: "Die Hard", year: 1988, rating: 7.8, overview: "An NYPD officer tries to save his wife and several others taken hostage by German terrorists...", poster: "/aF.jpg" },
-    { id: 10020, title: "Coming to America", year: 1988, rating: 6.8, overview: "An extremely pampered African Prince travels to Queens, New York...", poster: "/c.jpg" },
-    { id: 94, title: "Who Framed Roger Rabbit", year: 1988, rating: 7.5, overview: "A toon-hating detective is a cartoon rabbit's only hope to prove his innocence...", poster: "/w.jpg" },
-    { id: 628, title: "Beetlejuice", year: 1988, rating: 7.4, overview: "The spirits of a deceased couple are harassed by an unbearable family that has moved into their home...", poster: "/b.jpg" },
-    { id: 1059, title: "The Land Before Time", year: 1988, rating: 7.1, overview: "An orphaned brontosaurus teams up with other young dinosaurs in order to reunite with their families...", poster: "/l.jpg" },
+    { id: 10201, title: "Coming to America", year: 1988, rating: 6.8, overview: "An extremely pampered African Prince travels to Queens, New York...", poster: "/c.jpg" },
+    { id: 92, title: "Who Framed Roger Rabbit", year: 1988, rating: 7.5, overview: "A toon-hating detective is a cartoon rabbit's only hope to prove his innocence...", poster: "/w.jpg" },
+    { id: 887, title: "Beetlejuice", year: 1988, rating: 7.4, overview: "The spirits of a deceased couple are harassed by an unbearable family that has moved into their home...", poster: "/b.jpg" },
+    { id: 8587, title: "The Land Before Time", year: 1988, rating: 7.1, overview: "An orphaned brontosaurus teams up with other young dinosaurs in order to reunite with their families...", poster: "/l.jpg" },
   ],
   1987: [
-    { id: 284, title: "Predator", year: 1987, rating: 7.5, overview: "A team of commandos on a mission in a Central American jungle find themselves hunted by an extraterrestrial warrior...", poster: "/p.jpg" },
-    { id: 601, title: "The Princess Bride", year: 1987, rating: 7.6, overview: "While home sick in bed, a young boy's grandfather reads him the story of a farmboy-turned-pirate...", poster: "/t.jpg" },
-    { id: 110, title: "RoboCop", year: 1987, rating: 7.2, overview: "In a dystopic and crime-ridden Detroit, a terminally wounded cop returns to the force as a powerful cyborg...", poster: "/r.jpg" },
-    { id: 249, title: "Dirty Dancing", year: 1987, rating: 7.0, overview: "Spending the summer at a Catskills resort with her family, Frances falls in love with the camp's dance instructor...", poster: "/d.jpg" },
+    { id: 863, title: "Predator", year: 1987, rating: 7.5, overview: "A team of commandos on a mission in a Central American jungle find themselves hunted by an extraterrestrial warrior...", poster: "/p.jpg" },
+    { id: 105, title: "The Princess Bride", year: 1987, rating: 7.6, overview: "While home sick in bed, a young boy's grandfather reads him the story of a farmboy-turned-pirate...", poster: "/t.jpg" },
+    { id: 915, title: "RoboCop", year: 1987, rating: 7.2, overview: "In a dystopic and crime-ridden Detroit, a terminally wounded cop returns to the force as a powerful cyborg...", poster: "/r.jpg" },
+    { id: 10689, title: "Dirty Dancing", year: 1987, rating: 7.0, overview: "Spending the summer at a Catskills resort with her family, Frances falls in love with the camp's dance instructor...", poster: "/d.jpg" },
     { id: 855, title: "Full Metal Jacket", year: 1987, rating: 8.1, overview: "A pragmatic U.S. Marine observes the dehumanizing effects the Vietnam War has on his fellow recruits...", poster: "/f.jpg" },
   ],
   1986: [
-    { id: 679, title: "Aliens", year: 1986, rating: 8.3, overview: "Fifty-seven years after surviving an apocalyptic attack aboard her space vessel...", poster: "/a.jpg" },
+    { id: 680, title: "Aliens", year: 1986, rating: 8.3, overview: "Fifty-seven years after surviving an apocalyptic attack aboard her space vessel...", poster: "/a.jpg" },
     { id: 744, title: "Top Gun", year: 1986, rating: 7.0, overview: "As students at the United States Navy's elite fighter weapons school compete to be best in the class...", poster: "/t.jpg" },
-    { id: 620, title: "The Color of Money", year: 1986, rating: 6.8, overview: "Fast Eddie Felson teaches a cocky but immensely talented protégé the ropes of pool hustling...", poster: "/c.jpg" },
-    { id: 1024, title: "Ferris Bueller's Day Off", year: 1986, rating: 7.8, overview: "A high school wise guy is determined to have a day off from school...", poster: "/f.jpg" },
-    { id: 248, title: "Platoon", year: 1986, rating: 7.7, overview: "Chris Taylor, a neophyte recruit in Vietnam, finds himself caught in a battle of wills between two sergeants...", poster: "/p.jpg" },
+    { id: 370, title: "The Color of Money", year: 1986, rating: 6.8, overview: "Fast Eddie Felson teaches a cocky but immensely talented protégé the ropes of pool hustling...", poster: "/c.jpg" },
+    { id: 914, title: "Ferris Bueller's Day Off", year: 1986, rating: 7.8, overview: "A high school wise guy is determined to have a day off from school...", poster: "/f.jpg" },
+    { id: 1271, title: "Platoon", year: 1986, rating: 7.7, overview: "Chris Taylor, a neophyte recruit in Vietnam, finds himself caught in a battle of wills between two sergeants...", poster: "/p.jpg" },
   ],
   1985: [
     { id: 105, title: "Back to the Future", year: 1985, rating: 8.3, overview: "Marty McFly, a 17-year-old high school student, is accidentally sent thirty years into the past...", poster: "/q.jpg" },
-    { id: 85, title: "The Goonies", year: 1985, rating: 7.4, overview: "A group of young misfits called The Goonies discover an ancient map and set out on a quest to find a legendary pirate's long-lost treasure...", poster: "/g.jpg" },
-    { id: 620, title: "The Breakfast Club", year: 1985, rating: 7.8, overview: "Five high school students meet in Saturday detention and discover how they have a lot more in common than they thought...", poster: "/b.jpg" },
-    { id: 136, title: "Brazil", year: 1985, rating: 7.8, overview: "A bureaucrat in a retro-future world tries to correct an administrative error and becomes an enemy of the state...", poster: "/br.jpg" },
-    { id: 620, title: "Weird Science", year: 1985, rating: 6.6, overview: "Two high school nerds use a computer program to literally create the perfect woman...", poster: "/w.jpg" },
+    { id: 9296, title: "The Goonies", year: 1985, rating: 7.4, overview: "A group of young misfits called The Goonies discover an ancient map and set out on a quest to find a legendary pirate's long-lost treasure...", poster: "/g.jpg" },
+    { id: 22, title: "The Breakfast Club", year: 1985, rating: 7.8, overview: "Five high school students meet in Saturday detention and discover how they have a lot more in common than they thought...", poster: "/b.jpg" },
+    { id: 872, title: "Brazil", year: 1985, rating: 7.8, overview: "A bureaucrat in a retro-future world tries to correct an administrative error and becomes an enemy of the state...", poster: "/br.jpg" },
+    { id: 8867, title: "Weird Science", year: 1985, rating: 6.6, overview: "Two high school nerds use a computer program to literally create the perfect woman...", poster: "/w.jpg" },
   ],
   1984: [
     { id: 218, title: "The Terminator", year: 1984, rating: 7.7, overview: "A human soldier is sent from 2029 to 1984 to stop an almost indestructible cyborg killing machine...", poster: "/8.jpg" },
-    { id: 620, title: "Ghostbusters", year: 1984, rating: 7.8, overview: "Three former parapsychology professors set up shop as a unique ghost removal service...", poster: "/g.jpg" },
-    { id: 1885, title: "Indiana Jones and the Temple of Doom", year: 1984, rating: 7.2, overview: "In 1935, Indiana Jones arrives in India, still part of the British Empire, and is asked to find a mystical stone...", poster: "/i.jpg" },
-    { id: 136, title: "The Karate Kid", year: 1984, rating: 7.2, overview: "A martial arts master agrees to teach karate to a teenager...", poster: "/k.jpg" },
-    { id: 84, title: "Gremlins", year: 1984, rating: 7.1, overview: "A boy inadvertently breaks three important rules concerning his new pet and unleashes a horde of malevolently mischievous monsters...", poster: "/gr.jpg" },
+    { id: 730, title: "Ghostbusters", year: 1984, rating: 7.8, overview: "Three former parapsychology professors set up shop as a unique ghost removal service...", poster: "/g.jpg" },
+    { id: 90, title: "Indiana Jones and the Temple of Doom", year: 1984, rating: 7.2, overview: "In 1935, Indiana Jones arrives in India, still part of the British Empire, and is asked to find a mystical stone...", poster: "/i.jpg" },
+    { id: 872, title: "The Karate Kid", year: 1984, rating: 7.2, overview: "A martial arts master agrees to teach karate to a teenager...", poster: "/k.jpg" },
+    { id: 929, title: "Gremlins", year: 1984, rating: 7.1, overview: "A boy inadvertently breaks three important rules concerning his new pet and unleashes a horde of malevolently mischievous monsters...", poster: "/gr.jpg" },
   ],
   1983: [
-    { id: 1892, title: "Star Wars: Episode VI - Return of the Jedi", year: 1983, rating: 7.9, overview: "After a daring mission to rescue Han Solo from Jabba the Hutt, the Rebels dispatch to Endor to destroy the second Death Star...", poster: "/b.jpg" },
+    { id: 121, title: "Star Wars: Episode VI - Return of the Jedi", year: 1983, rating: 7.9, overview: "After a daring mission to rescue Han Solo from Jabba the Hutt, the Rebels dispatch to Endor to destroy the second Death Star...", poster: "/b.jpg" },
     { id: 9279, title: "Scarface", year: 1983, rating: 8.3, overview: "In 1980 Miami, a determined Cuban immigrant takes over a drug cartel and succumbs to greed...", poster: "/s.jpg" },
-    { id: 620, title: "A Christmas Story", year: 1983, rating: 7.7, overview: "In the 1940s, a young boy named Ralphie attempts to convince his parents...", poster: "/c.jpg" },
-    { id: 1883, title: "Flashdance", year: 1983, rating: 6.1, overview: "A Pittsburgh woman with two jobs as a welder and an exotic dancer wants to get into ballet school...", poster: "/f.jpg" },
-    { id: 1887, title: "Risky Business", year: 1983, rating: 6.8, overview: "A Chicago teenager is looking for fun at home while his parents are away...", poster: "/r.jpg" },
+    { id: 8577, title: "A Christmas Story", year: 1983, rating: 7.7, overview: "In the 1940s, a young boy named Ralphie attempts to convince his parents...", poster: "/c.jpg" },
+    { id: 872, title: "Flashdance", year: 1983, rating: 6.1, overview: "A Pittsburgh woman with two jobs as a welder and an exotic dancer wants to get into ballet school...", poster: "/f.jpg" },
+    { id: 9296, title: "Risky Business", year: 1983, rating: 6.8, overview: "A Chicago teenager is looking for fun at home while his parents are away...", poster: "/r.jpg" },
   ],
   1982: [
-    { id: 534, title: "E.T. the Extra-Terrestrial", year: 1982, rating: 7.9, overview: "A troubled child summons the courage to help a friendly alien escape Earth and return to his home world...", poster: "/9x.jpg" },
+    { id: 189, title: "E.T. the Extra-Terrestrial", year: 1982, rating: 7.9, overview: "A troubled child summons the courage to help a friendly alien escape Earth and return to his home world...", poster: "/9x.jpg" },
     { id: 78, title: "Blade Runner", year: 1982, rating: 7.9, overview: "A blade runner must pursue and terminate four replicants who stole a ship in space...", poster: "/b.jpg" },
-    { id: 1885, title: "The Thing", year: 1982, rating: 7.8, overview: "A research team in Antarctica is hunted by a shape-shifting alien...", poster: "/t.jpg" },
-    { id: 136, title: "Poltergeist", year: 1982, rating: 7.1, overview: "A family's home is haunted by a host of demonic ghosts...", poster: "/p.jpg" },
-    { id: 110, title: "First Blood", year: 1982, rating: 7.4, overview: "A veteran Green Beret is forced by a cruel Sheriff and his deputies to flee into the mountains...", poster: "/f.jpg" },
+    { id: 925, title: "The Thing", year: 1982, rating: 7.8, overview: "A research team in Antarctica is hunted by a shape-shifting alien...", poster: "/t.jpg" },
+    { id: 10954, title: "Poltergeist", year: 1982, rating: 7.1, overview: "A family's home is haunted by a host of demonic ghosts...", poster: "/p.jpg" },
+    { id: 315, title: "First Blood", year: 1982, rating: 7.4, overview: "A veteran Green Beret is forced by a cruel Sheriff and his deputies to flee into the mountains...", poster: "/f.jpg" },
   ],
   1981: [
     { id: 85, title: "Raiders of the Lost Ark", year: 1981, rating: 7.9, overview: "In 1936, archaeologist and adventurer Indiana Jones is hired by the U.S. government to find the Ark of the Covenant...", poster: "/r.jpg" },
-    { id: 136, title: "Mad Max 2: The Road Warrior", year: 1981, rating: 7.6, overview: "In the post-apocalyptic Australian wasteland, a cynical drifter agrees to help a small, gasoline-rich community escape a band of bandits...", poster: "/m.jpg" },
-    { id: 1885, title: "Escape from New York", year: 1981, rating: 7.1, overview: "In 1997, when the U.S. president crashes into Manhattan, now a giant maximum security prison...", poster: "/e.jpg" },
-    { id: 534, title: "Clash of the Titans", year: 1981, rating: 6.8, overview: "Perseus must battle Medusa and the Kraken to save the Princess Andromeda...", poster: "/c.jpg" },
-    { id: 1886, title: "Arthur", year: 1981, rating: 6.5, overview: "Alcoholic playboy Arthur Bach stands on the brink of an arranged marriage...", poster: "/a.jpg" },
+    { id: 782, title: "Mad Max 2: The Road Warrior", year: 1981, rating: 7.6, overview: "In the post-apocalyptic Australian wasteland, a cynical drifter agrees to help a small, gasoline-rich community escape a band of bandits...", poster: "/m.jpg" },
+    { id: 131, title: "Escape from New York", year: 1981, rating: 7.1, overview: "In 1997, when the U.S. president crashes into Manhattan, now a giant maximum security prison...", poster: "/e.jpg" },
+    { id: 1634, title: "Clash of the Titans", year: 1981, rating: 6.8, overview: "Perseus must battle Medusa and the Kraken to save the Princess Andromeda...", poster: "/c.jpg" },
+    { id: 8867, title: "Arthur", year: 1981, rating: 6.5, overview: "Alcoholic playboy Arthur Bach stands on the brink of an arranged marriage...", poster: "/a.jpg" },
   ],
   1980: [
-    { id: 1884, title: "The Shining", year: 1980, rating: 8.4, overview: "A family heads to an isolated hotel for the winter where a sinister presence influences the father into violence...", poster: "/s.jpg" },
-    { id: 1885, title: "Star Wars: Episode V - The Empire Strikes Back", year: 1980, rating: 8.3, overview: "After the Rebels are brutally overpowered by the Empire on the ice planet Hoth, Luke Skywalker begins Jedi training with Yoda...", poster: "/e.jpg" },
-    { id: 1886, title: "Airplane!", year: 1980, rating: 7.6, overview: "A man afraid to fly must ensure that a plane lands safely after the pilots become sick...", poster: "/a.jpg" },
-    { id: 1887, title: "The Blues Brothers", year: 1980, rating: 7.9, overview: "Jake Blues reunites with his brother, Elwood, and together they take on a new mission...", poster: "/b.jpg" },
-    { id: 1888, title: "Friday the 13th", year: 1980, rating: 6.3, overview: "A group of camp counselors are stalked and murdered by an unknown assailant while trying to reopen a summer camp...", poster: "/f.jpg" },
+    { id: 278, title: "The Shining", year: 1980, rating: 8.4, overview: "A family heads to an isolated hotel for the winter where a sinister presence influences the father into violence...", poster: "/s.jpg" },
+    { id: 1891, title: "Star Wars: Episode V - The Empire Strikes Back", year: 1980, rating: 8.3, overview: "After the Rebels are brutally overpowered by the Empire on the ice planet Hoth, Luke Skywalker begins Jedi training with Yoda...", poster: "/e.jpg" },
+    { id: 9296, title: "Airplane!", year: 1980, rating: 7.6, overview: "A man afraid to fly must ensure that a plane lands safely after the pilots become sick...", poster: "/a.jpg" },
+    { id: 544, title: "The Blues Brothers", year: 1980, rating: 7.9, overview: "Jake Blues reunites with his brother, Elwood, and together they take on a new mission...", poster: "/b.jpg" },
+    { id: 862, title: "Friday the 13th", year: 1980, rating: 6.3, overview: "A group of camp counselors are stalked and murdered by an unknown assailant while trying to reopen a summer camp...", poster: "/f.jpg" },
   ],
 };
 
 export default function AllMovies({ onMovieSelect }: AllMoviesProps) {
   const [selectedYear, setSelectedYear] = useState<number | null>(null);
+  const [moviesByYear, setMoviesByYear] = useState<{ [year: number]: MovieData[] }>({});
+  const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
-  const years = Object.keys(mockMoviesByYear)
+  useEffect(() => {
+    const fetchMovies = async () => {
+      try {
+        setIsLoading(true);
+        setError(null);
+        const currentYear = new Date().getFullYear();
+        const movies = await getPopularMoviesByYearRange(1980, currentYear);
+        setMoviesByYear(movies);
+      } catch (err) {
+        setError('Failed to fetch movies');
+        console.error('Error fetching movies:', err);
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    fetchMovies();
+  }, []);
+
+  const years = Object.keys(moviesByYear)
     .map(year => parseInt(year))
     .sort((a, b) => b - a);
 
   const movies = selectedYear 
-    ? mockMoviesByYear[selectedYear] || []
+    ? moviesByYear[selectedYear] || []
     : [];
 
   return (
@@ -412,22 +434,45 @@ export default function AllMovies({ onMovieSelect }: AllMoviesProps) {
           <p className="text-gray-400 text-lg">Browse the most popular movies by year</p>
         </div>
 
-        {/* Year Selector */}
-        <div className="max-w-md mx-auto mb-12">
-          <div className="relative">
-            <select
-              value={selectedYear || ''}
-              onChange={(e) => setSelectedYear(e.target.value ? parseInt(e.target.value) : null)}
-              className="w-full bg-black/60 backdrop-blur-md border border-white/20 rounded-lg px-6 py-4 text-white appearance-none cursor-pointer focus:outline-none focus:border-red-600 transition-colors text-lg"
-            >
-              <option value="">Select a year</option>
-              {years.map(year => (
-                <option key={year} value={year}>{year}</option>
-              ))}
-            </select>
-            <ChevronDown className="absolute right-4 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400 pointer-events-none" />
+        {/* Loading State */}
+        {isLoading && (
+          <div className="flex justify-center items-center py-20">
+            <Loader2 className="w-8 h-8 text-red-600 animate-spin" />
+            <span className="ml-3 text-gray-400">Loading movies...</span>
           </div>
-        </div>
+        )}
+
+        {/* Error State */}
+        {error && (
+          <div className="text-center py-20">
+            <p className="text-red-500 text-lg">{error}</p>
+            <button 
+              onClick={() => window.location.reload()}
+              className="mt-4 px-6 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors"
+            >
+              Try Again
+            </button>
+          </div>
+        )}
+
+        {/* Year Selector */}
+        {!isLoading && !error && (
+          <div className="max-w-md mx-auto mb-12">
+            <div className="relative">
+              <select
+                value={selectedYear || ''}
+                onChange={(e) => setSelectedYear(e.target.value ? parseInt(e.target.value) : null)}
+                className="w-full bg-black/60 backdrop-blur-md border border-white/20 rounded-lg px-6 py-4 text-white appearance-none cursor-pointer focus:outline-none focus:border-red-600 transition-colors text-lg"
+              >
+                <option value="">Select a year</option>
+                {years.map(year => (
+                  <option key={year} value={year}>{year}</option>
+                ))}
+              </select>
+              <ChevronDown className="absolute right-4 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400 pointer-events-none" />
+            </div>
+          </div>
+        )}
 
         {/* Movies Grid */}
         {selectedYear && movies.length > 0 ? (
@@ -447,7 +492,7 @@ export default function AllMovies({ onMovieSelect }: AllMoviesProps) {
                   className="flex justify-center"
                 >
                   <ModernMovieCard
-                    movie={toMovieData(movie)}
+                    movie={movie}
                     layout="poster"
                     size="medium"
                     onSelect={(m) => onMovieSelect?.(m)}

@@ -38,18 +38,16 @@ export interface TrailerData {
   videos: MovieVideoResult[];
 }
 
-export type VideoSource = 'embedsu' | 'vidsrcpro' | 'vidsrc';
+export type VideoSource = 'vidsrcpro' | 'vidsrc';
 
 export const getVideoUrl = (id: number, source: VideoSource = 'vidsrcpro'): string => {
   switch (source) {
-    case 'embedsu':
-      return `https://embed.su/embed/movie/${id}`;
     case 'vidsrcpro':
-      return `https://vidsrc.net/embed/movie/${id}`;
+      return `https://vidsrc.pro/embed/movie/${id}`;
     case 'vidsrc':
       return `https://vidsrc.to/embed/movie/${id}`;
     default:
-      return `https://embed.su/embed/movie/${id}`;
+      return `https://vidsrc.pro/embed/movie/${id}`;
   }
 };
 
@@ -78,98 +76,196 @@ export const getTrendingMovies = async (): Promise<MovieData[]> => {
 export const searchMovies = async (query: string): Promise<MovieData[]> => {
   if (!query) return [];
   
-  // List of movies that are confirmed to work with vidsrc
-  const vidsrcCompatibleMovies: MovieData[] = [
-    // Popular movies that work well with vidsrc
-    {
-      id: 693134,
-      title: "Dune: Part Two",
-      overview: "Paul Atreides unites with Chani and the Fremen...",
-      poster_path: "/1pdfLvkbYvwOhVnCF3LpxnfbscC.jpg",
-      backdrop_path: "/1pdfLvkbYvwOhVnCF3LpxnfbscC.jpg",
-      release_date: "2024-03-01",
-      vote_average: 8.4,
-      genre_ids: [28, 12, 878]
-    },
-    {
-      id: 872585,
-      title: "Oppenheimer",
-      overview: "The story of the atomic bomb and J. Robert Oppenheimer...",
-      poster_path: "/8Gx9keQ4BmJdCv1J7uqh0eV9gJg.jpg",
-      backdrop_path: "/8Gx9keQ4BmJdCv1J7uqh0eV9gJg.jpg",
-      release_date: "2023-07-21",
-      vote_average: 8.4,
-      genre_ids: [18, 36, 10752]
-    },
-    {
-      id: 634649,
-      title: "Spider-Man: No Way Home",
-      overview: "Peter Parker is unmasked and no longer able to separate his normal life...",
-      poster_path: "/1g0dhYtWyWtSSTvTOB3U9zY9Vv6.jpg",
-      backdrop_path: "/iQFcwSG7CZpOMIuRYrSTP3pFCDf.jpg",
-      release_date: "2021-12-15",
-      vote_average: 8.0,
-      genre_ids: [28, 12, 878]
-    },
-    {
-      id: 299536,
-      title: "Avengers: Endgame",
-      overview: "The epic conclusion to the Infinity Saga...",
-      poster_path: "/or06FN3Dka5zwKSqRqU2IlMeRco.jpg",
-      backdrop_path: "/or06FN3Dka5zwKSqRqU2IlMeRco.jpg",
-      release_date: "2019-04-24",
-      vote_average: 8.4,
-      genre_ids: [28, 12, 878]
-    },
-    {
-      id: 475557,
-      title: "Joker",
-      overview: "Arthur Fleck's transformation into the Joker...",
-      poster_path: "/udDclJoHjfjb8Ekgsd4RD3Ry6vq.jpg",
-      backdrop_path: "/udDclJoHjfjb8Ekgsd4RD3Ry6vq.jpg",
-      release_date: "2019-10-04",
-      vote_average: 8.4,
-      genre_ids: [18, 80, 53]
-    },
-    {
-      id: 361743,
-      title: "Top Gun: Maverick",
-      overview: "After thirty years, Maverick is still pushing the envelope...",
-      poster_path: "/j3L1kQgPnB6nJc4hLwD2hG0hG2.jpg",
-      backdrop_path: "/j3L1kQgPnB6nJc4hLwD2hG0hG2.jpg",
-      release_date: "2022-05-27",
-      vote_average: 8.3,
-      genre_ids: [28, 12, 18]
-    },
-    {
-      id: 578,
-      title: "Dune",
-      overview: "Paul Atreides, a brilliant and gifted young man...",
-      poster_path: "/d5NXSklZfsNcSR9pWhv97NVpms6.jpg",
-      backdrop_path: "/lz21LZEjG7mS7AgmQO0LYG9YmQQ.jpg",
-      release_date: "2021-09-15",
-      vote_average: 7.8,
-      genre_ids: [12, 18, 878]
-    },
-    {
-      id: 299537,
-      title: "Avengers: Infinity War",
-      overview: "The Avengers and their allies must be willing to sacrifice all...",
-      poster_path: "/7WsyChQLEftNiDO6GvyIzR4RbUv.jpg",
-      backdrop_path: "/7WsyChQLEftNiDO6GvyIzR4RbUv.jpg",
-      release_date: "2018-04-27",
-      vote_average: 8.4,
-      genre_ids: [28, 12, 878]
+  try {
+    // Use TMDB API to search for all movies
+    const res = await fetch(`${TMDB_BASE_URL}/search/movie?query=${encodeURIComponent(query)}&include_adult=false&language=en-US&page=1`, {
+      headers: getHeaders()
+    });
+    const data = await res.json();
+    const results = data.results || [];
+    
+    // Transform TMDB results to MovieData format
+    const movies: MovieData[] = results.map((movie: any) => ({
+      id: movie.id,
+      title: movie.title,
+      overview: movie.overview || '',
+      poster_path: movie.poster_path || '',
+      backdrop_path: movie.backdrop_path || '',
+      release_date: movie.release_date || '',
+      vote_average: movie.vote_average || 0,
+      genre_ids: movie.genre_ids || []
+    }));
+    
+    return movies;
+  } catch (err) {
+    console.error('TMDB Search Error:', err);
+    
+    // Fallback to hardcoded list if API fails
+    const vidsrcCompatibleMovies: MovieData[] = [
+      {
+        id: 693134,
+        title: "Dune: Part Two",
+        overview: "Paul Atreides unites with Chani and the Fremen...",
+        poster_path: "/1pdfLvkbYvwOhVnCF3LpxnfbscC.jpg",
+        backdrop_path: "/1pdfLvkbYvwOhVnCF3LpxnfbscC.jpg",
+        release_date: "2024-03-01",
+        vote_average: 8.4,
+        genre_ids: [28, 12, 878]
+      },
+      {
+        id: 872585,
+        title: "Oppenheimer",
+        overview: "The story of the atomic bomb and J. Robert Oppenheimer...",
+        poster_path: "/8Gx9keQ4BmJdCv1J7uqh0eV9gJg.jpg",
+        backdrop_path: "/8Gx9keQ4BmJdCv1J7uqh0eV9gJg.jpg",
+        release_date: "2023-07-21",
+        vote_average: 8.4,
+        genre_ids: [18, 36, 10752]
+      },
+      {
+        id: 634649,
+        title: "Spider-Man: No Way Home",
+        overview: "Peter Parker is unmasked and no longer able to separate his normal life...",
+        poster_path: "/1g0dhYtWyWtSSTvTOB3U9zY9Vv6.jpg",
+        backdrop_path: "/iQFcwSG7CZpOMIuRYrSTP3pFCDf.jpg",
+        release_date: "2021-12-15",
+        vote_average: 8.0,
+        genre_ids: [28, 12, 878]
+      },
+      {
+        id: 299536,
+        title: "Avengers: Endgame",
+        overview: "The epic conclusion to the Infinity Saga...",
+        poster_path: "/or06FN3Dka5zwKSqRqU2IlMeRco.jpg",
+        backdrop_path: "/or06FN3Dka5zwKSqRqU2IlMeRco.jpg",
+        release_date: "2019-04-24",
+        vote_average: 8.4,
+        genre_ids: [28, 12, 878]
+      },
+      {
+        id: 475557,
+        title: "Joker",
+        overview: "Arthur Fleck's transformation into the Joker...",
+        poster_path: "/udDclJoHjfjb8Ekgsd4RD3Ry6vq.jpg",
+        backdrop_path: "/udDclJoHjfjb8Ekgsd4RD3Ry6vq.jpg",
+        release_date: "2019-10-04",
+        vote_average: 8.4,
+        genre_ids: [18, 80, 53]
+      },
+      {
+        id: 361743,
+        title: "Top Gun: Maverick",
+        overview: "After thirty years, Maverick is still pushing the envelope...",
+        poster_path: "/j3L1kQgPnB6nJc4hLwD2hG0hG2.jpg",
+        backdrop_path: "/j3L1kQgPnB6nJc4hLwD2hG0hG2.jpg",
+        release_date: "2022-05-27",
+        vote_average: 8.3,
+        genre_ids: [28, 12, 18]
+      },
+      {
+        id: 578,
+        title: "Dune",
+        overview: "Paul Atreides, a brilliant and gifted young man...",
+        poster_path: "/d5NXSklZfsNcSR9pWhv97NVpms6.jpg",
+        backdrop_path: "/lz21LZEjG7mS7AgmQO0LYG9YmQQ.jpg",
+        release_date: "2021-09-15",
+        vote_average: 7.8,
+        genre_ids: [12, 18, 878]
+      },
+      {
+        id: 299537,
+        title: "Avengers: Infinity War",
+        overview: "The Avengers and their allies must be willing to sacrifice all...",
+        poster_path: "/7WsyChQLEftNiDO6GvyIzR4RbUv.jpg",
+        backdrop_path: "/7WsyChQLEftNiDO6GvyIzR4RbUv.jpg",
+        release_date: "2018-04-27",
+        vote_average: 8.4,
+        genre_ids: [28, 12, 878]
+      }
+    ];
+
+    // Filter movies based on search query
+    const filteredMovies = vidsrcCompatibleMovies.filter(movie => 
+      movie.title.toLowerCase().includes(query.toLowerCase()) ||
+      movie.overview.toLowerCase().includes(query.toLowerCase())
+    );
+
+    return filteredMovies;
+  }
+};
+
+export const searchMoviesByLetter = async (letter: string): Promise<MovieData[]> => {
+  if (!letter || letter.length !== 1) return [];
+  
+  try {
+    // Use TMDB discover API to get movies starting with a specific letter
+    // We'll use the discover endpoint with primary_release_year to get more results
+    const res = await fetch(`${TMDB_BASE_URL}/discover/movie?include_adult=false&include_video=false&language=en-US&page=1&sort_by=popularity.desc`, {
+      headers: getHeaders()
+    });
+    const data = await res.json();
+    const results = data.results || [];
+    
+    // Filter movies that start with the letter (case-insensitive)
+    const filteredMovies = results.filter((movie: any) => {
+      const title = movie.title || '';
+      return title.toLowerCase().startsWith(letter.toLowerCase());
+    });
+    
+    // Transform to MovieData format
+    const movies: MovieData[] = filteredMovies.map((movie: any) => ({
+      id: movie.id,
+      title: movie.title,
+      overview: movie.overview || '',
+      poster_path: movie.poster_path || '',
+      backdrop_path: movie.backdrop_path || '',
+      release_date: movie.release_date || '',
+      vote_average: movie.vote_average || 0,
+      genre_ids: movie.genre_ids || []
+    }));
+    
+    return movies;
+  } catch (err) {
+    console.error('TMDB Search by Letter Error:', err);
+    return [];
+  }
+};
+
+export const getPopularMoviesByYear = async (year: number): Promise<MovieData[]> => {
+  try {
+    const res = await fetch(`${TMDB_BASE_URL}/discover/movie?include_adult=false&include_video=false&language=en-US&page=1&primary_release_year=${year}&sort_by=popularity.desc`, {
+      headers: getHeaders()
+    });
+    const data = await res.json();
+    const results = data.results || [];
+    const movies: MovieData[] = results.map((movie: any) => ({
+      id: movie.id,
+      title: movie.title,
+      overview: movie.overview || '',
+      poster_path: movie.poster_path || '',
+      backdrop_path: movie.backdrop_path || '',
+      release_date: movie.release_date || '',
+      vote_average: movie.vote_average || 0,
+      genre_ids: movie.genre_ids || []
+    }));
+    return movies;
+  } catch (err) {
+    console.error(`TMDB Popular Movies by Year (${year}) Error:`, err);
+    return [];
+  }
+};
+
+export const getPopularMoviesByYearRange = async (startYear: number, endYear: number): Promise<{ [year: number]: MovieData[] }> => {
+  const moviesByYear: { [year: number]: MovieData[] } = {};
+  
+  for (let year = endYear; year >= startYear; year--) {
+    const movies = await getPopularMoviesByYear(year);
+    if (movies.length > 0) {
+      moviesByYear[year] = movies.slice(0, 5); // Limit to 5 movies per year
     }
-  ];
-
-  // Filter movies based on search query
-  const filteredMovies = vidsrcCompatibleMovies.filter(movie => 
-    movie.title.toLowerCase().includes(query.toLowerCase()) ||
-    movie.overview.toLowerCase().includes(query.toLowerCase())
-  );
-
-  return filteredMovies;
+  }
+  
+  return moviesByYear;
 };
 
 const getFallbackMovies = (): MovieData[] => [
