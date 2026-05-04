@@ -114,7 +114,18 @@ export default function ModernMovieCard({
     setTrailerUrl(null);
     setIsLoadingTrailer(true);
     void getTrailerUrl(movie).then((url) => {
-      setTrailerUrl(url);
+      if (!url) {
+        setTrailerUrl(null);
+        setIsLoadingTrailer(false);
+        return;
+      }
+
+      const videoId = extractYoutubeVideoId(url);
+      const previewUrl = videoId
+        ? `https://www.youtube-nocookie.com/embed/${videoId}?autoplay=1&mute=1&controls=0&playsinline=1&loop=1&playlist=${videoId}&rel=0&modestbranding=1`
+        : url;
+
+      setTrailerUrl(previewUrl);
       setIsLoadingTrailer(false);
     });
   };
@@ -370,4 +381,9 @@ export default function ModernMovieCard({
         : null}
     </>
   );
+}
+
+function extractYoutubeVideoId(url: string) {
+  const matched = url.match(/embed\/([^?&]+)/);
+  return matched?.[1] ?? '';
 }
