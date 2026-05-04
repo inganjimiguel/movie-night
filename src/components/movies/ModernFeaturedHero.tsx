@@ -99,7 +99,7 @@ export default function ModernFeaturedHero({
         transition={{ duration: 0.45 }}
         className="relative overflow-hidden rounded-[32px] border border-white/10 bg-black/55 shadow-2xl shadow-black/35 backdrop-blur-xl"
       >
-        <div className="absolute inset-0 bg-[radial-gradient(circle_at_top,_rgba(185,28,28,0.18),_transparent_42%)]" />
+        <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_top,_rgba(185,28,28,0.18),_transparent_42%)]" />
         <div className="grid min-h-[540px] lg:grid-cols-[minmax(0,1.05fr)_minmax(420px,0.95fr)]">
           <div className="relative z-10 flex items-center px-6 py-8 sm:px-8 lg:px-10 lg:py-10">
             <div className="max-w-2xl space-y-6">
@@ -155,7 +155,7 @@ export default function ModernFeaturedHero({
           </div>
 
           <div className="relative min-h-[280px] border-t border-white/10 lg:min-h-full lg:border-l lg:border-t-0">
-            <div className="absolute inset-0 bg-gradient-to-br from-red-950/20 via-black/20 to-black/60" />
+            <div className="pointer-events-none absolute inset-0 bg-gradient-to-br from-red-950/20 via-black/20 to-black/60" />
             {showActiveTrailer ? (
               <iframe
                 src={trailerUrl}
@@ -165,7 +165,7 @@ export default function ModernFeaturedHero({
                 referrerPolicy="strict-origin-when-cross-origin"
               />
             ) : (
-              <div className="absolute inset-0">
+              <div className="absolute inset-0 z-10">
                 <img
                   src={getImageUrl(movie.backdrop_path || movie.poster_path, 'original')}
                   alt={title}
@@ -177,7 +177,7 @@ export default function ModernFeaturedHero({
                       whileHover={{ scale: 1.03 }}
                       whileTap={{ scale: 0.97 }}
                       onClick={() => setShouldPlayTrailer(true)}
-                      className="inline-flex items-center gap-3 rounded-full border border-white/15 bg-black/65 px-5 py-3 text-sm font-semibold text-white shadow-xl backdrop-blur-md hover:bg-black/75"
+                      className="relative z-20 inline-flex items-center gap-3 rounded-full border border-white/15 bg-black/65 px-5 py-3 text-sm font-semibold text-white shadow-xl backdrop-blur-md hover:bg-black/75"
                     >
                       <Play className="h-4 w-4 fill-white" />
                       <span>{isTrailerVisible ? 'Play Trailer' : 'Resume Trailer'}</span>
@@ -187,8 +187,8 @@ export default function ModernFeaturedHero({
               </div>
             )}
 
-            <div className="absolute inset-0 bg-gradient-to-t from-black via-black/15 to-black/25 lg:bg-gradient-to-l lg:from-transparent lg:via-transparent lg:to-black/70" />
-            <div className="absolute bottom-4 left-4 right-4 rounded-2xl border border-white/10 bg-black/45 px-4 py-3 text-sm text-gray-200 backdrop-blur-md">
+            <div className="pointer-events-none absolute inset-0 bg-gradient-to-t from-black via-black/15 to-black/25 lg:bg-gradient-to-l lg:from-transparent lg:via-transparent lg:to-black/70" />
+            <div className="pointer-events-none absolute bottom-4 left-4 right-4 z-20 rounded-2xl border border-white/10 bg-black/45 px-4 py-3 text-sm text-gray-200 backdrop-blur-md">
               {isTrailerLoading
                 ? 'Loading trailer preview...'
                 : showActiveTrailer
