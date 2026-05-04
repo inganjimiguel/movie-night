@@ -13,7 +13,8 @@ import {
   Clapperboard
 } from 'lucide-react';
 import { useUserPreferences } from '../../contexts/UserPreferencesContext';
-import { getVideoUrl, type VideoSource } from '../../services/movieService';
+import type { MovieData } from '../../services/movieService';
+import { getContentTitle, getContentTypeLabel, getContentYear, getVidsrcUrl } from '../../services/movieService';
 
 interface SophisticatedSidePanelsProps {
   navigateTo?: (path: string) => void;
@@ -24,6 +25,7 @@ export default function SophisticatedSidePanels({ navigateTo }: SophisticatedSid
   const [currentIndex, setCurrentIndex] = useState(0);
   const [isPlaying, setIsPlaying] = useState(false);
   const [playerUrl, setPlayerUrl] = useState('');
+  const [hoveredButton, setHoveredButton] = useState<'favorites' | 'watchlater' | 'trailers' | null>(null);
   const { favorites, watchLater } = useUserPreferences();
 
   const handleNavigateToTrailers = () => {
@@ -35,9 +37,9 @@ export default function SophisticatedSidePanels({ navigateTo }: SophisticatedSid
   const currentItems = activePanel === 'favorites' ? favorites : watchLater;
   const currentItem = currentItems[currentIndex];
 
-  const handlePlay = async (movie: any) => {
+  const handlePlay = async (movie: MovieData) => {
     try {
-      const url = getVideoUrl(movie.id, 'vidsrcpro');
+      const url = getVidsrcUrl(movie);
       setPlayerUrl(url);
       setIsPlaying(true);
     } catch (error) {
@@ -66,51 +68,118 @@ export default function SophisticatedSidePanels({ navigateTo }: SophisticatedSid
   return (
     <>
       {/* Floating Action Buttons */}
-      <div className="fixed right-8 top-1/2 -translate-y-1/2 z-40 flex flex-col gap-4">
-        <motion.button
-          whileHover={{ scale: 1.1 }}
-          whileTap={{ scale: 0.9 }}
-          onClick={() => setActivePanel('favorites')}
-          className={`w-14 h-14 rounded-full shadow-lg flex items-center justify-center transition-all ${
-            activePanel === 'favorites' 
-              ? 'bg-red-600 text-white' 
-              : 'bg-black/80 backdrop-blur-md text-white border border-white/20 hover:bg-red-600/80'
-          }`}
-        >
-          <Heart className="w-6 h-6" />
-          {favorites.length > 0 && (
-            <span className="absolute -top-1 -right-1 w-5 h-5 bg-red-600 text-white text-xs rounded-full flex items-center justify-center font-bold">
-              {favorites.length}
-            </span>
-          )}
-        </motion.button>
+      <div className="fixed left-1 top-1/2 z-40 -translate-y-1/2">
+        <div className="relative flex items-center">
+          <div className="flex flex-col items-center gap-1.5 rounded-2xl border border-white/10 bg-black/65 p-1.5 shadow-2xl shadow-black/30 backdrop-blur-xl sm:left-2 sm:gap-2 sm:p-2">
+            <div className="relative">
+              <motion.button
+                whileHover={{ scale: 1.1 }}
+                whileTap={{ scale: 0.9 }}
+                onClick={() => setActivePanel('favorites')}
+                onHoverStart={() => setHoveredButton('favorites')}
+                onHoverEnd={() => setHoveredButton(null)}
+                onFocus={() => setHoveredButton('favorites')}
+                onBlur={() => setHoveredButton(null)}
+                className={`flex h-9 w-9 items-center justify-center rounded-full shadow-lg transition-all sm:h-10 sm:w-10 lg:h-11 lg:w-11 ${
+                  activePanel === 'favorites'
+                    ? 'bg-red-600 text-white'
+                    : 'bg-black/80 backdrop-blur-md text-white border border-white/20 hover:bg-red-600/80'
+                }`}
+                aria-label="Favorites"
+                title="Favorites"
+              >
+                <Heart className="h-4 w-4 sm:h-5 sm:w-5" />
+                {favorites.length > 0 && (
+                  <span className="absolute -right-1 -top-1 flex h-4 w-4 items-center justify-center rounded-full bg-red-600 text-[10px] font-bold text-white sm:h-4.5 sm:w-4.5">
+                    {favorites.length}
+                  </span>
+                )}
+              </motion.button>
+              <AnimatePresence>
+                {hoveredButton === 'favorites' && (
+                  <motion.div
+                    initial={{ opacity: 0, x: 10 }}
+                    animate={{ opacity: 1, x: 0 }}
+                    exit={{ opacity: 0, x: 10 }}
+                    transition={{ duration: 0.2 }}
+                    className="absolute left-12 top-1/2 hidden -translate-y-1/2 rounded-lg bg-white px-2.5 py-1.5 text-xs font-medium whitespace-nowrap text-black shadow-lg sm:block"
+                  >
+                    My Favorites
+                  </motion.div>
+                )}
+              </AnimatePresence>
+            </div>
 
-        <motion.button
-          whileHover={{ scale: 1.1 }}
-          whileTap={{ scale: 0.9 }}
-          onClick={() => setActivePanel('watchlater')}
-          className={`w-14 h-14 rounded-full shadow-lg flex items-center justify-center transition-all ${
-            activePanel === 'watchlater' 
-              ? 'bg-green-600 text-white' 
-              : 'bg-black/80 backdrop-blur-md text-white border border-white/20 hover:bg-green-600/80'
-          }`}
-        >
-          <Clock className="w-6 h-6" />
-          {watchLater.length > 0 && (
-            <span className="absolute -top-1 -right-1 w-5 h-5 bg-green-600 text-white text-xs rounded-full flex items-center justify-center font-bold">
-              {watchLater.length}
-            </span>
-          )}
-        </motion.button>
+            <div className="relative">
+              <motion.button
+                whileHover={{ scale: 1.1 }}
+                whileTap={{ scale: 0.9 }}
+                onClick={() => setActivePanel('watchlater')}
+                onHoverStart={() => setHoveredButton('watchlater')}
+                onHoverEnd={() => setHoveredButton(null)}
+                onFocus={() => setHoveredButton('watchlater')}
+                onBlur={() => setHoveredButton(null)}
+                className={`flex h-9 w-9 items-center justify-center rounded-full shadow-lg transition-all sm:h-10 sm:w-10 lg:h-11 lg:w-11 ${
+                  activePanel === 'watchlater'
+                    ? 'bg-green-600 text-white'
+                    : 'bg-black/80 backdrop-blur-md text-white border border-white/20 hover:bg-green-600/80'
+                }`}
+                aria-label="Watch later"
+                title="Watch later"
+              >
+                <Clock className="h-4 w-4 sm:h-5 sm:w-5" />
+                {watchLater.length > 0 && (
+                  <span className="absolute -right-1 -top-1 flex h-4 w-4 items-center justify-center rounded-full bg-green-600 text-[10px] font-bold text-white sm:h-4.5 sm:w-4.5">
+                    {watchLater.length}
+                  </span>
+                )}
+              </motion.button>
+              <AnimatePresence>
+                {hoveredButton === 'watchlater' && (
+                  <motion.div
+                    initial={{ opacity: 0, x: 10 }}
+                    animate={{ opacity: 1, x: 0 }}
+                    exit={{ opacity: 0, x: 10 }}
+                    transition={{ duration: 0.2 }}
+                    className="absolute left-12 top-1/2 hidden -translate-y-1/2 rounded-lg bg-white px-2.5 py-1.5 text-xs font-medium whitespace-nowrap text-black shadow-lg sm:block"
+                  >
+                    Watch Later
+                  </motion.div>
+                )}
+              </AnimatePresence>
+            </div>
 
-        <motion.button
-          whileHover={{ scale: 1.1 }}
-          whileTap={{ scale: 0.9 }}
-          onClick={handleNavigateToTrailers}
-          className="w-14 h-14 rounded-full shadow-lg bg-black/80 backdrop-blur-md text-white border border-white/20 hover:bg-purple-600/80 flex items-center justify-center transition-all"
-        >
-          <Clapperboard className="w-6 h-6" />
-        </motion.button>
+            <div className="relative">
+              <motion.button
+                whileHover={{ scale: 1.1 }}
+                whileTap={{ scale: 0.9 }}
+                onClick={handleNavigateToTrailers}
+                onHoverStart={() => setHoveredButton('trailers')}
+                onHoverEnd={() => setHoveredButton(null)}
+                onFocus={() => setHoveredButton('trailers')}
+                onBlur={() => setHoveredButton(null)}
+                className="flex h-9 w-9 items-center justify-center rounded-full border border-white/20 bg-black/80 text-white shadow-lg transition-all hover:bg-purple-600/80 sm:h-10 sm:w-10 lg:h-11 lg:w-11"
+                aria-label="Trailers"
+                title="Trailers"
+              >
+                <Clapperboard className="h-4 w-4 sm:h-5 sm:w-5" />
+              </motion.button>
+              <AnimatePresence>
+                {hoveredButton === 'trailers' && (
+                  <motion.div
+                    initial={{ opacity: 0, x: 10 }}
+                    animate={{ opacity: 1, x: 0 }}
+                    exit={{ opacity: 0, x: 10 }}
+                    transition={{ duration: 0.2 }}
+                    className="absolute left-12 top-1/2 hidden -translate-y-1/2 rounded-lg bg-white px-2.5 py-1.5 text-xs font-medium whitespace-nowrap text-black shadow-lg sm:block"
+                  >
+                    Trailers
+                  </motion.div>
+                )}
+              </AnimatePresence>
+            </div>
+          </div>
+        </div>
       </div>
 
       {/* Side Panels */}
@@ -152,7 +221,7 @@ export default function SophisticatedSidePanels({ navigateTo }: SophisticatedSid
                         {activePanel === 'favorites' ? 'My Favorites' : 'Watch Later'}
                       </h2>
                       <p className="text-gray-400 text-sm">
-                        {currentItems.length} {currentItems.length === 1 ? 'movie' : 'movies'}
+                        {currentItems.length} {currentItems.length === 1 ? 'title' : 'titles'}
                       </p>
                     </div>
                   </div>
@@ -209,7 +278,7 @@ export default function SophisticatedSidePanels({ navigateTo }: SophisticatedSid
                         <div className="relative aspect-video rounded-xl overflow-hidden bg-gray-900">
                           <img
                             src={`https://image.tmdb.org/t/p/w500${currentItem.backdrop_path}`}
-                            alt={currentItem.title}
+                            alt={getContentTitle(currentItem)}
                             className="w-full h-full object-cover"
                           />
                           <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-transparent" />
@@ -228,7 +297,7 @@ export default function SophisticatedSidePanels({ navigateTo }: SophisticatedSid
                         </div>
 
                         <div className="space-y-3">
-                          <h3 className="text-xl font-bold text-white">{currentItem.title}</h3>
+                          <h3 className="text-xl font-bold text-white">{getContentTitle(currentItem)}</h3>
                           <p className="text-gray-400 line-clamp-3">{currentItem.overview}</p>
                           
                           <div className="flex items-center gap-4 text-sm text-gray-400">
@@ -238,11 +307,11 @@ export default function SophisticatedSidePanels({ navigateTo }: SophisticatedSid
                             </div>
                             <div className="flex items-center gap-1">
                               <Calendar className="w-4 h-4" />
-                              <span>{new Date(currentItem.release_date).getFullYear()}</span>
+                              <span>{getContentYear(currentItem)}</span>
                             </div>
                             <div className="flex items-center gap-1">
                               <Film className="w-4 h-4" />
-                              <span>Movie</span>
+                              <span>{getContentTypeLabel(currentItem)}</span>
                             </div>
                           </div>
                         </div>

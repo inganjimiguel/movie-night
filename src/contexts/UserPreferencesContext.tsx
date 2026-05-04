@@ -1,5 +1,5 @@
 import { createContext, useContext, useState, useEffect, ReactNode } from 'react';
-import { type MovieData } from '../services/movieService';
+import { getContentStorageKey, type MovieData } from '../services/movieService';
 
 interface UserPreferencesContextType {
   favorites: MovieData[];
@@ -22,6 +22,8 @@ const STORAGE_KEYS = {
 export function UserPreferencesProvider({ children }: { children: ReactNode }) {
   const [favorites, setFavorites] = useState<MovieData[]>([]);
   const [watchLater, setWatchLater] = useState<MovieData[]>([]);
+  const matchesItem = (item: MovieData, target: MovieData) => getContentStorageKey(item) === getContentStorageKey(target);
+  const matchesId = (item: MovieData, movieId: number) => item.id === movieId;
 
   // Load data from localStorage on mount
   useEffect(() => {
@@ -61,9 +63,9 @@ export function UserPreferencesProvider({ children }: { children: ReactNode }) {
 
   const addToFavorites = (movie: MovieData) => {
     setFavorites(prev => {
-      const exists = prev.some(fav => fav.id === movie.id);
+      const exists = prev.some(fav => matchesItem(fav, movie));
       if (exists) {
-        return prev.filter(fav => fav.id !== movie.id);
+        return prev.filter(fav => !matchesItem(fav, movie));
       }
       return [...prev, movie];
     });
@@ -74,14 +76,14 @@ export function UserPreferencesProvider({ children }: { children: ReactNode }) {
   };
 
   const isFavorite = (movieId: number) => {
-    return favorites.some(movie => movie.id === movieId);
+    return favorites.some(movie => matchesId(movie, movieId));
   };
 
   const addToWatchLater = (movie: MovieData) => {
     setWatchLater(prev => {
-      const exists = prev.some(item => item.id === movie.id);
+      const exists = prev.some(item => matchesItem(item, movie));
       if (exists) {
-        return prev.filter(item => item.id !== movie.id);
+        return prev.filter(item => !matchesItem(item, movie));
       }
       return [...prev, movie];
     });
@@ -92,7 +94,7 @@ export function UserPreferencesProvider({ children }: { children: ReactNode }) {
   };
 
   const isWatchLater = (movieId: number) => {
-    return watchLater.some(movie => movie.id === movieId);
+    return watchLater.some(movie => matchesId(movie, movieId));
   };
 
   return (

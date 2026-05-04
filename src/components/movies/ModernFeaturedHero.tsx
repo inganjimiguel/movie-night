@@ -1,15 +1,21 @@
-import React, { useState, useEffect } from 'react';
-import { motion, AnimatePresence } from 'motion/react';
-import { Play, Info, Star, Calendar, Clock } from 'lucide-react';
+import React, { useEffect, useState } from 'react';
+import { motion } from 'motion/react';
+import { Calendar, Clock, Play, Star } from 'lucide-react';
 import Badge from '../common/Badge';
-import { getImageUrl, type MovieData } from '../../services/movieService';
+import {
+  getContentTitle,
+  getContentYear,
+  getImageUrl,
+  getTrailerUrl,
+  isTvLikeContent,
+  type MovieData,
+} from '../../services/movieService';
 
 interface ModernFeaturedHeroProps {
   movie: MovieData;
   isMuted: boolean;
   onToggleMute: () => void;
   onPlay: () => void;
-  onOpenDetails: () => void;
 }
 
 export default function ModernFeaturedHero({
@@ -17,195 +23,136 @@ export default function ModernFeaturedHero({
   isMuted,
   onToggleMute,
   onPlay,
-  onOpenDetails,
 }: ModernFeaturedHeroProps) {
-  const [isImageLoaded, setIsImageLoaded] = useState(false);
-  const [isHovered, setIsHovered] = useState(false);
+  const [trailerUrl, setTrailerUrl] = useState<string | null>(null);
+  const [isTrailerLoading, setIsTrailerLoading] = useState(true);
 
   useEffect(() => {
-    setIsImageLoaded(false);
-  }, [movie.id]);
+    let cancelled = false;
 
-  const handlePlayClick = (e: React.MouseEvent) => {
-    e.stopPropagation();
-    onPlay();
-  };
+    setTrailerUrl(null);
+    setIsTrailerLoading(true);
 
-  const handleInfoClick = (e: React.MouseEvent) => {
-    e.stopPropagation();
-    onOpenDetails();
-  };
+    void getTrailerUrl(movie).then((url) => {
+      if (cancelled) return;
+
+      if (!url) {
+        setTrailerUrl(null);
+        setIsTrailerLoading(false);
+        return;
+      }
+
+      const videoId = extractYoutubeVideoId(url);
+      const autoplayUrl = videoId
+        ? `https://www.youtube-nocookie.com/embed/${videoId}?autoplay=1&mute=1&controls=1&playsinline=1&loop=1&playlist=${videoId}&rel=0&modestbranding=1`
+        : url;
+
+      setTrailerUrl(autoplayUrl);
+      setIsTrailerLoading(false);
+    });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [movie]);
+
+  const title = getContentTitle(movie);
+  const year = getContentYear(movie);
+  const playLabel = isTvLikeContent(movie) ? 'Play Series' : 'Play Now';
 
   return (
-    <section className="relative h-[60vh] sm:h-[70vh] lg:h-[80vh] overflow-hidden">
-      {/* Background Image with Parallax Effect */}
-      <div className="absolute inset-0">
-        <motion.img
-          src={getImageUrl(movie.backdrop_path, 'original')}
-          alt={movie.title}
-          className="w-full h-full object-cover"
-          initial={{ scale: 1.1 }}
-          animate={{ 
-            scale: isHovered ? 1.05 : 1.1,
-            y: isHovered ? -10 : 0
-          }}
-          transition={{ duration: 0.8, ease: "easeOut" }}
-          onLoad={() => setIsImageLoaded(true)}
-        />
-        
-        {/* Gradient Overlays */}
-        <div className="absolute inset-0 bg-gradient-to-r from-black via-black/50 to-transparent" />
-        <div className="absolute inset-0 bg-gradient-to-t from-black via-black/20 to-transparent" />
-        <div className="absolute inset-0 bg-gradient-to-b from-black/30 via-transparent to-black/50" />
-      </div>
-
-      {/* Loading Placeholder */}
-      <AnimatePresence>
-        {!isImageLoaded && (
-          <motion.div
-            initial={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            className="absolute inset-0 bg-gradient-to-br from-gray-900 via-gray-800 to-gray-900"
-          />
-        )}
-      </AnimatePresence>
-
-      {/* Content Container */}
-      <div className="relative h-full flex items-center">
-        <div className="container mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="max-w-2xl lg:max-w-3xl">
-            <motion.div
-              initial={{ opacity: 0, y: 30 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.8, delay: 0.2 }}
-              className="space-y-4 sm:space-y-6"
-            >
-              {/* Title and Badges */}
-              <div className="space-y-4">
-                <div className="flex flex-wrap items-center gap-2 sm:gap-3">
-                  <Badge 
-                    text="FEATURED" 
-                    className="bg-red-600 text-white px-3 py-1 text-sm font-bold" 
-                  />
-                  <Badge 
-                    text="HD" 
-                    className="bg-white/20 backdrop-blur-md text-white border border-white/30 px-3 py-1" 
-                  />
-                  {movie.vote_average > 8 && (
-                    <Badge 
-                      text="CRITIC'S CHOICE" 
-                      className="bg-yellow-600/80 backdrop-blur-md text-white px-3 py-1" 
-                    />
-                  )}
-                </div>
-
-                <h1 className="text-4xl sm:text-5xl lg:text-6xl xl:text-7xl font-black text-white leading-tight tracking-tight">
-                  {movie.title}
-                </h1>
-              </div>
-
-              {/* Metadata */}
-              <div className="flex flex-wrap items-center gap-4 sm:gap-6 text-sm sm:text-base">
-                <div className="flex items-center gap-2">
-                  <Star className="w-4 h-4 sm:w-5 sm:h-5 text-yellow-500 fill-yellow-500" />
-                  <span className="text-white font-bold">{movie.vote_average.toFixed(1)}</span>
-                  <span className="text-gray-300">/10</span>
-                </div>
-                
-                <div className="flex items-center gap-2 text-gray-300">
-                  <Calendar className="w-4 h-4" />
-                  <span>{movie.release_date.split('-')[0]}</span>
-                </div>
-
-                <div className="flex items-center gap-2 text-gray-300">
-                  <Clock className="w-4 h-4" />
-                  <span>2h 15min</span>
-                </div>
-              </div>
-
-              {/* Overview */}
-              <motion.p
-                initial={{ opacity: 0, y: 20 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ duration: 0.8, delay: 0.4 }}
-                className="text-gray-200 text-sm sm:text-base lg:text-lg leading-relaxed line-clamp-3 sm:line-clamp-4"
-              >
-                {movie.overview}
-              </motion.p>
-
-              {/* Action Buttons */}
-              <motion.div
-                initial={{ opacity: 0, y: 20 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ duration: 0.8, delay: 0.6 }}
-                className="flex flex-wrap gap-3 sm:gap-4"
-              >
-                <motion.button
-                  whileHover={{ scale: 1.05 }}
-                  whileTap={{ scale: 0.95 }}
-                  onClick={handlePlayClick}
-                  onMouseEnter={() => setIsHovered(true)}
-                  onMouseLeave={() => setIsHovered(false)}
-                  className="flex items-center gap-2 sm:gap-3 px-6 sm:px-8 py-3 sm:py-4 bg-white text-black font-bold rounded-lg hover:bg-gray-100 transition-all shadow-lg"
-                >
-                  <Play className="w-5 h-5 sm:w-6 sm:h-6 fill-black" />
-                  <span className="text-sm sm:text-base">Play Now</span>
-                </motion.button>
-
-                              </motion.div>
-
-              {/* Additional Info */}
-              <motion.div
-                initial={{ opacity: 0, y: 20 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ duration: 0.8, delay: 0.8 }}
-                className="hidden lg:block"
-              >
-                <div className="flex items-center gap-6 text-sm text-gray-400">
-                  <div className="flex items-center gap-2">
-                    <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></div>
-                    <span>Live Streaming Available</span>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <span>4K Ultra HD</span>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <span>Dolby Atmos</span>
-                  </div>
-                </div>
-              </motion.div>
-            </motion.div>
-          </div>
-        </div>
-      </div>
-
-      
-      {/* Scroll Indicator */}
+    <section className="px-4 sm:px-6 lg:px-8">
       <motion.div
-        initial={{ opacity: 0, y: 20 }}
+        initial={{ opacity: 0, y: 24 }}
         animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.8, delay: 1 }}
-        className="absolute bottom-6 left-1/2 -translate-x-1/2 text-white/60 text-sm flex items-center gap-2"
+        transition={{ duration: 0.45 }}
+        className="relative overflow-hidden rounded-[32px] border border-white/10 bg-black/55 shadow-2xl shadow-black/35 backdrop-blur-xl"
       >
-        <span>Scroll to explore</span>
-        <motion.div
-          animate={{ y: [0, 5, 0] }}
-          transition={{ duration: 2, repeat: Infinity }}
-          className="w-1 h-4 bg-white/60 rounded-full"
-        />
-      </motion.div>
+        <div className="absolute inset-0 bg-[radial-gradient(circle_at_top,_rgba(185,28,28,0.18),_transparent_42%)]" />
+        <div className="grid min-h-[540px] lg:grid-cols-[minmax(0,1.05fr)_minmax(420px,0.95fr)]">
+          <div className="relative z-10 flex items-center px-6 py-8 sm:px-8 lg:px-10 lg:py-10">
+            <div className="max-w-2xl space-y-6">
+              <div className="flex flex-wrap items-center gap-2 sm:gap-3">
+                <Badge text="FEATURED" className="rounded-full bg-red-600 px-3 py-1 text-xs font-bold tracking-[0.2em] text-white" />
+                <Badge text="HD" className="rounded-full border border-white/15 bg-white/10 px-3 py-1 text-xs font-semibold tracking-[0.2em] text-white" />
+                {movie.vote_average > 8 && (
+                  <Badge
+                    text="TOP PICK"
+                    className="rounded-full border border-yellow-400/30 bg-yellow-500/15 px-3 py-1 text-xs font-semibold tracking-[0.18em] text-yellow-100"
+                  />
+                )}
+              </div>
 
-      {/* Responsive Mobile Adjustments */}
-      <div className="lg:hidden absolute bottom-4 left-4 right-4">
-        <div className="flex items-center gap-4 text-xs text-gray-400">
-          <div className="flex items-center gap-1">
-            <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></div>
-            <span>Available Now</span>
+              <div className="space-y-4">
+                <h1 className="text-4xl font-black leading-[0.95] tracking-tight text-white sm:text-5xl lg:text-6xl xl:text-7xl">
+                  {title}
+                </h1>
+
+                <div className="flex flex-wrap items-center gap-3 text-sm sm:text-base">
+                  <div className="flex items-center gap-2 rounded-full border border-white/10 bg-white/5 px-3 py-1.5 text-white">
+                    <Star className="h-4 w-4 fill-yellow-500 text-yellow-500" />
+                    <span className="font-semibold">{movie.vote_average.toFixed(1)}</span>
+                    <span className="text-gray-400">/10</span>
+                  </div>
+                  <div className="flex items-center gap-2 rounded-full border border-white/10 bg-white/5 px-3 py-1.5 text-gray-300">
+                    <Calendar className="h-4 w-4" />
+                    <span>{year}</span>
+                  </div>
+                  <div className="flex items-center gap-2 rounded-full border border-white/10 bg-white/5 px-3 py-1.5 text-gray-300">
+                    <Clock className="h-4 w-4" />
+                    <span>{isTvLikeContent(movie) ? 'Series' : '2h 15min'}</span>
+                  </div>
+                </div>
+              </div>
+
+              <p className="max-w-xl text-sm leading-7 text-gray-300 sm:text-base lg:text-lg">
+                {movie.overview}
+              </p>
+
+              <div className="flex flex-wrap items-center gap-3">
+                <motion.button
+                  whileHover={{ scale: 1.03 }}
+                  whileTap={{ scale: 0.97 }}
+                  onClick={onPlay}
+                  className="inline-flex items-center gap-3 rounded-full bg-white px-6 py-3 text-sm font-bold text-black shadow-lg shadow-black/30 transition-colors hover:bg-gray-100 sm:px-8 sm:py-4 sm:text-base"
+                >
+                  <Play className="h-5 w-5 fill-black" />
+                  <span>{playLabel}</span>
+                </motion.button>
+              </div>
+            </div>
           </div>
-          <span>•</span>
-          <span>HD Quality</span>
+
+          <div className="relative min-h-[280px] border-t border-white/10 lg:min-h-full lg:border-l lg:border-t-0">
+            <div className="absolute inset-0 bg-gradient-to-br from-red-950/20 via-black/20 to-black/60" />
+            {trailerUrl ? (
+              <iframe
+                src={trailerUrl}
+                title={`${title} featured trailer`}
+                className="absolute inset-0 h-full w-full border-0"
+                allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                referrerPolicy="strict-origin-when-cross-origin"
+              />
+            ) : (
+              <img
+                src={getImageUrl(movie.backdrop_path || movie.poster_path, 'original')}
+                alt={title}
+                className="absolute inset-0 h-full w-full object-cover"
+              />
+            )}
+
+            <div className="absolute inset-0 bg-gradient-to-t from-black via-black/15 to-black/25 lg:bg-gradient-to-l lg:from-transparent lg:via-transparent lg:to-black/70" />
+            <div className="absolute bottom-4 left-4 right-4 rounded-2xl border border-white/10 bg-black/45 px-4 py-3 text-sm text-gray-200 backdrop-blur-md">
+              {isTrailerLoading ? 'Loading trailer preview...' : trailerUrl ? 'Featured trailer is playing.' : 'Trailer preview not available for this title yet.'}
+            </div>
+          </div>
         </div>
-      </div>
+      </motion.div>
     </section>
   );
+}
+
+function extractYoutubeVideoId(url: string) {
+  const matched = url.match(/embed\/([^?&]+)/);
+  return matched?.[1] ?? '';
 }

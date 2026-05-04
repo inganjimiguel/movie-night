@@ -36,6 +36,7 @@ interface ResponsiveNavigationProps {
 const navigationItems = [
   { name: 'Home', icon: Home, active: true, path: '/' },
   { name: 'TV Shows', icon: Tv, path: '/tv-shows' },
+  { name: 'Animations', icon: Film, path: '/animations' },
   { name: 'Movies', icon: Film, path: '/movies' },
   { name: 'New & Popular', icon: TrendingUp, path: '/new' },
   { name: 'My List', icon: Bookmark, path: '/my-list' },

@@ -16,8 +16,10 @@ import {
 } from 'lucide-react';
 import VideoLoadingBanner from '../../components/ui/VideoLoadingBanner';
 import Badge from '../../components/common/Badge';
-import { getImageUrl, getGenreNames, type MovieData } from '../../services/movieService';
+import { getImageUrl, getGenreNames, getVidsrcUrl, type MovieData } from '../../services/movieService';
 import { useUserPreferences } from '../../contexts/UserPreferencesContext';
+
+const PLAYER_READY_GRACE_MS = 1800;
 
 interface MovieDetailsPageProps {
   movie: MovieData;
@@ -35,12 +37,9 @@ export default function MovieDetailsPage({ movie, onClose }: MovieDetailsPagePro
   const handlePlay = () => {
     if (!movie) return;
     setIsPlayerLoading(true);
-    const vidsrcUrl = `https://vidsrc.to/embed/movie/${movie.id}`;
+    const vidsrcUrl = getVidsrcUrl(movie);
     setPlayerUrl(vidsrcUrl);
     setIsPlaying(true);
-    
-    // Show loading banner for 2 seconds
-    setTimeout(() => setIsPlayerLoading(false), 2000);
   };
 
   const isFavorite = movie && favorites.some(f => f.id === movie.id);
@@ -72,6 +71,9 @@ export default function MovieDetailsPage({ movie, onClose }: MovieDetailsPagePro
               referrerPolicy="strict-origin-when-cross-origin"
               loading="eager"
               style={{ border: 'none' }}
+              onLoad={() => {
+                window.setTimeout(() => setIsPlayerLoading(false), PLAYER_READY_GRACE_MS);
+              }}
             />
             
             {/* Close Button */}
@@ -87,7 +89,7 @@ export default function MovieDetailsPage({ movie, onClose }: MovieDetailsPagePro
               {isPlayerLoading && (
                 <VideoLoadingBanner
                   isLoading={isPlayerLoading}
-                  message="Loading video player..."
+                  message="Loading a movie player... grab a snack."
                   showConnectionStatus={true}
                 />
               )}

@@ -1,12 +1,14 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { Play, X, Star, Calendar, ArrowRight, Loader2 } from 'lucide-react';
-import { getTrailers, getVideoUrl, getImageUrl, type TrailerData, type MovieData } from '../../services/movieService';
+import { getTrailers, getVidsrcUrl, getImageUrl, type TrailerData, type MovieData } from '../../services/movieService';
 import ModernMovieDetailsModal from '../../components/movies/ModernMovieDetailsModal';
 
 interface TrailersPageProps {
   navigateTo?: (path: string) => void;
 }
+
+const PLAYER_READY_GRACE_MS = 1800;
 
 export default function TrailersPage({ navigateTo }: TrailersPageProps = {}) {
   const [trailers, setTrailers] = useState<TrailerData[]>([]);
@@ -80,13 +82,14 @@ export default function TrailersPage({ navigateTo }: TrailersPageProps = {}) {
       setIsModalPlaying(true);
       setIsPlayerLoading(true);
       setPlayerError(null);
-      setPlayerUrl(getVideoUrl(selectedMovie.id, 'vidsrcpro'));
-      
-      // Simulate loading completion
-      setTimeout(() => {
-        setIsPlayerLoading(false);
-      }, 1000);
+      setPlayerUrl(getVidsrcUrl(selectedMovie));
     }
+  };
+
+  const handlePlayerReady = () => {
+    window.setTimeout(() => {
+      setIsPlayerLoading(false);
+    }, PLAYER_READY_GRACE_MS);
   };
 
   const handlePlayTrailer = (trailer: TrailerData) => {
@@ -260,6 +263,7 @@ export default function TrailersPage({ navigateTo }: TrailersPageProps = {}) {
             relatedMovies={[]}
             onClose={handleCloseModal}
             onPlay={handlePlayMovie}
+            onPlayerReady={handlePlayerReady}
           />
         )}
       </AnimatePresence>

@@ -1,16 +1,16 @@
-import {useRef, useState, useEffect} from 'react';
+import { useState, useEffect } from 'react';
 import { Search } from 'lucide-react';
 import ModernFeaturedHero from '../../components/movies/ModernFeaturedHero';
 import ModernMovieCarousel from '../../components/movies/ModernMovieCarousel';
 import ModernMovieDetailsModal from '../../components/movies/ModernMovieDetailsModal';
 import ModernMovieCard from '../../components/movies/ModernMovieCard';
-import SearchResultsSection from '../../components/movies/SearchResultsSection';
 import OptimizedSearch from '../../components/search/OptimizedSearch';
+import GenreSearch from '../../components/search/GenreSearch';
 import SophisticatedSidePanels from '../../components/layout/SophisticatedSidePanels';
 import BackToHomeNavbar from '../../components/layout/BackToHomeNavbar';
 import AllMovies from '../../components/movies/AllMovies';
 import useMovieBrowser from '../../hooks/useMovieBrowser';
-import { searchMoviesByLetter } from '../../services/movieService';
+import { getTrendingMovies, getTrendingTVShows, getTrendingAnimations, isAnimationContent, searchAllContent, type ContentData } from '../../services/movieService';
 import '../../styles/responsive.css';
 
 interface HomePageProps {
@@ -20,10 +20,8 @@ interface HomePageProps {
 export default function HomePage({ navigateTo }: HomePageProps = {}) {
   const {
     featured,
-    isMuted,
     isPlaying,
     isPlayerLoading,
-    isScrolled,
     isSearching,
     movies,
     playerError,
@@ -32,84 +30,118 @@ export default function HomePage({ navigateTo }: HomePageProps = {}) {
     searchResults,
     selectedMovie,
     closeMovieDetails,
-    handleSearch,
     openMovieDetails,
     playMovie,
     resetToBrowse,
-    setIsMuted,
+    handlePlayerReady,
     setSearchQuery,
     setSearchResults,
     setIsSearching,
   } = useMovieBrowser();
 
-    const [filteredResults, setFilteredResults] = useState<any[]>([]);
+  const [filteredResults, setFilteredResults] = useState<ContentData[]>([]);
+  const [selectedGenre, setSelectedGenre] = useState<number>(0);
+  const [tvShows, setTVShows] = useState<ContentData[]>([]);
+  const [animations, setAnimations] = useState<ContentData[]>([]);
+  const [activeTab, setActiveTab] = useState<'movies' | 'tv' | 'animations'>('movies');
 
-  const movieRowRef = useRef<HTMLDivElement>(null);
+  const currentContent = activeTab === 'movies' ? movies : activeTab === 'tv' ? tvShows : animations;
+  const availableGenreIds = Array.from(new Set(currentContent.flatMap((item) => item.genre_ids))).sort((a, b) => a - b);
 
-  const handleOptimizedSearch = (query: string) => {
+  const filterResultsByActiveTab = (results: ContentData[]) => {
+    if (activeTab === 'movies') {
+      return results.filter((item) => item.media_type === 'movie');
+    }
+
+    if (activeTab === 'tv') {
+      return results.filter((item) => item.media_type === 'tv');
+    }
+
+    return results.filter((item) => isAnimationContent(item));
+  };
+  const handleGenreSelect = (genreId: number) => {
+    setSelectedGenre(genreId);
+    if (genreId === 0) {
+      setFilteredResults([]);
+    } else {
+      const filtered = currentContent.filter(item => item.genre_ids.includes(genreId));
+      setFilteredResults(filtered);
+    }
+  };
+
+  const handleOptimizedSearch = async (query: string) => {
     setSearchQuery(query);
     
     if (!query.trim()) {
       setFilteredResults([]);
+      setSearchResults([]);
+      setIsSearching(false);
       return;
     }
 
-    // Trigger the existing search
-    handleSearch({ preventDefault: () => {} } as any);
-  };
-
-  const handleDirectPlay = async (query: string) => {
-    // In a real implementation, this would search for the movie and play it directly
-    // For now, we'll just trigger a search
-    setSearchQuery(query);
-    handleSearch({ preventDefault: () => {} } as any);
-  };
-
-  const handleSearchByLetter = async (letter: string) => {
-    const results = await searchMoviesByLetter(letter);
-    setSearchQuery(letter);
-    setSearchResults(results);
+    const results = await searchAllContent(query);
+    setSearchResults(filterResultsByActiveTab(results));
     setIsSearching(true);
   };
 
+  // Fetch all content types on mount
+  useEffect(() => {
+    const fetchAllContent = async () => {
+      const [moviesData, tvData, animationsData] = await Promise.all([
+        getTrendingMovies(),
+        getTrendingTVShows(),
+        getTrendingAnimations()
+      ]);
+      
+      setTVShows(tvData);
+      setAnimations(animationsData);
+    };
+
+    fetchAllContent();
+  }, []);
+
   const handleBackToHome = () => {
-    console.log('Back to home clicked - clearing search state');
-    
-    // Clear local state first
     setFilteredResults([]);
-    
-    // Then reset the browser state (which also clears searchQuery and searchResults)
     resetToBrowse();
-    console.log('resetToBrowse called');
   };
 
-  // Apply filters to search results
   useEffect(() => {
-    console.log('Search state changed:', { searchQuery, searchResultsLength: searchResults.length });
-    
     if (!searchQuery || searchResults.length === 0) {
       setFilteredResults([]);
       return;
     }
 
-    let filtered = [...searchResults];
-    
-    // Sort by popularity by default
-    filtered.sort((a, b) => (b.popularity || 0) - (a.popularity || 0));
-    
+    const filtered = [...searchResults];
+    filtered.sort((a, b) => (b.vote_average || 0) - (a.vote_average || 0));
     setFilteredResults(filtered);
   }, [searchResults, searchQuery]);
 
-  const handleRowScroll = (direction: 'left' | 'right') => {
-    if (!movieRowRef.current) {
+  useEffect(() => {
+    if (!searchQuery.trim()) {
       return;
     }
 
-    const {scrollLeft, clientWidth} = movieRowRef.current;
-    const nextScrollLeft = direction === 'left' ? scrollLeft - clientWidth : scrollLeft + clientWidth;
+    let cancelled = false;
 
-    movieRowRef.current.scrollTo({left: nextScrollLeft, behavior: 'smooth'});
-  };
+    void searchAllContent(searchQuery).then((results) => {
+      if (cancelled) return;
+      setSearchResults(filterResultsByActiveTab(results));
+      setIsSearching(true);
+    });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [activeTab]);
+
+  useEffect(() => {
+    if (selectedGenre === 0) {
+      return;
+    }
+
+    const filtered = currentContent.filter((item) => item.genre_ids.includes(selectedGenre));
+    setFilteredResults(filtered);
+  }, [activeTab, currentContent, selectedGenre]);
 
   return (
     <div className="min-h-screen bg-black overflow-x-hidden selection:bg-red-600 selection:text-white">
@@ -120,46 +152,80 @@ export default function HomePage({ navigateTo }: HomePageProps = {}) {
         searchQuery={searchQuery}
       />
 
-      {/* Optimized Search */}
-      <div className="px-4 sm:px-6 lg:px-8 py-6 pt-20">
-        <OptimizedSearch 
-          onSearch={handleOptimizedSearch} 
-          onDirectPlay={handleDirectPlay} 
-          onSearchByLetter={handleSearchByLetter} 
-          externalQuery={searchQuery}
-        />
+      {/* Navigation Tabs and Search */}
+      <div className="relative z-[1400] px-3 py-5 pt-18 sm:px-6 sm:py-6 sm:pt-20 lg:px-8">
+        {/* Content Type Tabs */}
+        <div className="mb-5 rounded-[28px] border border-white/10 bg-black/45 p-4 shadow-2xl shadow-black/25 backdrop-blur-xl sm:mb-6 sm:p-5">
+          <div className="mb-4 flex flex-wrap items-center gap-3 sm:gap-4">
+            <div className="flex w-full max-w-full overflow-x-auto rounded-full border border-white/10 bg-white/5 p-1 sm:w-auto">
+              {[
+                { key: 'movies', label: 'Movies' },
+                { key: 'tv', label: 'TV Shows' },
+                { key: 'animations', label: 'Animations' }
+              ].map((tab) => (
+                <button
+                  key={tab.key}
+                  onClick={() => setActiveTab(tab.key as any)}
+                  className={`shrink-0 rounded-full px-4 py-2 text-sm font-medium transition-all sm:px-6 sm:text-base ${
+                    activeTab === tab.key
+                      ? 'bg-red-600 text-white shadow-lg shadow-red-600/30'
+                      : 'text-gray-400 hover:bg-white/5 hover:text-white'
+                  }`}
+                >
+                  {tab.label}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {/* Search and Genre Filter */}
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:gap-4">
+            <div className="min-w-0 flex-1">
+              <OptimizedSearch 
+                onSearch={handleOptimizedSearch} 
+                externalQuery={searchQuery}
+              />
+            </div>
+            <div className="relative z-[1450] w-full sm:w-auto">
+              <GenreSearch 
+                onGenreSelect={handleGenreSelect}
+                selectedGenre={selectedGenre}
+                availableGenreIds={availableGenreIds}
+              />
+            </div>
+          </div>
+        </div>
       </div>
 
       {searchQuery && filteredResults.length > 0 ? (
-        <div className="px-4 sm:px-6 lg:px-8">
-          <div className="mb-6">
+        <div className="px-3 sm:px-6 lg:px-8">
+          <div className="mb-6 rounded-[28px] border border-white/10 bg-black/45 px-5 py-5 shadow-2xl shadow-black/25 backdrop-blur-xl">
             <h2 className="text-2xl font-bold text-white mb-2">Search Results</h2>
             <p className="text-gray-400">
               {filteredResults.length} results for "{searchQuery}"
             </p>
           </div>
-          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-4 sm:gap-6 pb-12">
-            {filteredResults.map((movie, index) => (
-              <div key={movie.id} className="transform transition-all duration-300 hover:scale-105">
+          <div className="grid grid-cols-2 gap-3 pb-12 sm:grid-cols-3 sm:gap-6 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6">
+            {filteredResults.map((item, index) => (
+              <div key={item.id} className="transform transition-all duration-300 hover:scale-105">
                 <ModernMovieCard
-                  movie={movie}
+                  movie={item}
                   layout="poster"
                   size="medium"
-                  onSelect={(movie) => openMovieDetails(movie)}
-                  showPlayButton={true}
+                  onSelect={(item) => openMovieDetails(item)}
                 />
               </div>
             ))}
           </div>
         </div>
       ) : searchQuery ? (
-        <div className="px-4 sm:px-6 lg:px-8 py-20 text-center">
-          <div className="w-20 h-20 bg-gray-800 rounded-full flex items-center justify-center mx-auto mb-6">
+        <div className="px-3 py-16 text-center sm:px-6 sm:py-20 lg:px-8">
+          <div className="mx-auto mb-6 flex h-20 w-20 items-center justify-center rounded-full bg-gray-800">
             <Search className="w-10 h-10 text-gray-600" />
           </div>
           <h2 className="text-2xl font-bold text-white mb-4">No results found</h2>
           <p className="text-gray-400 mb-4">
-            No movies match your search for "{searchQuery}"
+            No {activeTab === 'movies' ? 'movies' : activeTab === 'tv' ? 'TV shows' : 'animations'} match your search for "{searchQuery}"
           </p>
           <button
             onClick={() => {
@@ -171,43 +237,99 @@ export default function HomePage({ navigateTo }: HomePageProps = {}) {
             Clear Search
           </button>
         </div>
+      ) : selectedGenre > 0 ? (
+        <div className="px-3 sm:px-6 lg:px-8">
+          <div className="mb-6 rounded-[28px] border border-white/10 bg-black/45 px-5 py-5 shadow-2xl shadow-black/25 backdrop-blur-xl">
+            <h2 className="text-2xl font-bold text-white mb-2">Genre Results</h2>
+            <p className="text-gray-400">
+              {filteredResults.length} movies found
+            </p>
+          </div>
+          <div className="grid grid-cols-2 gap-3 pb-12 sm:grid-cols-3 sm:gap-6 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6">
+            {filteredResults.map((movie, index) => (
+              <div key={movie.id} className="transform transition-all duration-300 hover:scale-105">
+                <ModernMovieCard
+                  movie={movie}
+                  layout="poster"
+                  size="medium"
+                  onSelect={(movie) => openMovieDetails(movie)}
+                />
+              </div>
+            ))}
+          </div>
+        </div>
       ) : (
         <>
-          {featured && (
+          {featured && activeTab === 'movies' && (
             <ModernFeaturedHero
               movie={featured}
               isMuted={false}
               onToggleMute={() => {}}
               onPlay={() => openMovieDetails(featured, true)}
-              onOpenDetails={() => openMovieDetails(featured)}
             />
           )}
 
-          <main className="relative -mt-32 sm:-mt-20 lg:-mt-16 z-10 pb-24 space-y-12 sm:space-y-16 lg:space-y-20 w-full overflow-x-hidden">
-            <ModernMovieCarousel
-              movies={movies}
-              title="Trending Now"
-              subtitle="The most popular movies right now"
-              onMovieSelect={(movie) => openMovieDetails(movie)}
-              autoScroll={false}
-            />
+          <main className={`relative ${activeTab === 'movies' && featured ? 'mt-8 sm:mt-10 lg:mt-12' : 'mt-6 sm:mt-8'} z-10 pb-20 sm:pb-24 space-y-10 sm:space-y-14 lg:space-y-20 w-full overflow-x-hidden`}>
+            {activeTab === 'movies' && (
+              <>
+                <ModernMovieCarousel
+                  movies={movies}
+                  title="Trending Movies"
+                  subtitle="The most popular movies right now"
+                  onMovieSelect={(movie) => openMovieDetails(movie)}
+                  autoScroll={false}
+                  className="pt-4"
+                />
 
-            <ModernMovieCarousel
-              movies={movies.slice(5, 13)}
-              title="Popular on MovieNight"
-              subtitle="Discover what other movie lovers are watching right now"
-              onMovieSelect={(movie) => openMovieDetails(movie)}
-              autoScroll={false}
-            />
+                <ModernMovieCarousel
+                  movies={movies.slice(5, 13)}
+                  title="Popular Movies"
+                  subtitle="Discover what other movie lovers are watching"
+                  onMovieSelect={(movie) => openMovieDetails(movie)}
+                  autoScroll={false}
+                />
+              </>
+            )}
 
-            <ModernMovieCarousel
-              movies={movies.slice(13, 25)}
-              title="New Releases"
-              subtitle="Fresh movies added this week"
-              onMovieSelect={(movie) => openMovieDetails(movie)}
-              autoScroll={true}
-              scrollInterval={4000}
-            />
+            {activeTab === 'tv' && (
+              <>
+                <ModernMovieCarousel
+                  movies={tvShows}
+                  title="Trending TV Shows"
+                  subtitle="The most popular TV shows right now"
+                  onMovieSelect={(show) => openMovieDetails(show)}
+                  autoScroll={false}
+                />
+
+                <ModernMovieCarousel
+                  movies={tvShows.slice(5, 13)}
+                  title="Popular TV Shows"
+                  subtitle="Discover what other viewers are watching"
+                  onMovieSelect={(show) => openMovieDetails(show)}
+                  autoScroll={false}
+                />
+              </>
+            )}
+
+            {activeTab === 'animations' && (
+              <>
+                <ModernMovieCarousel
+                  movies={animations}
+                  title="Trending Animations"
+                  subtitle="The most popular animated content right now"
+                  onMovieSelect={(animation) => openMovieDetails(animation)}
+                  autoScroll={false}
+                />
+
+                <ModernMovieCarousel
+                  movies={animations.slice(5, 13)}
+                  title="Popular Animations"
+                  subtitle="Discover amazing animated stories"
+                  onMovieSelect={(animation) => openMovieDetails(animation)}
+                  autoScroll={false}
+                />
+              </>
+            )}
           </main>
           
           {/* All Movies Section */}
@@ -226,6 +348,7 @@ export default function HomePage({ navigateTo }: HomePageProps = {}) {
         relatedMovies={movies.slice(0, 6)}
         onClose={closeMovieDetails}
         onPlay={() => selectedMovie && void playMovie(selectedMovie)}
+        onPlayerReady={handlePlayerReady}
       />
 
       <SophisticatedSidePanels navigateTo={navigateTo} />

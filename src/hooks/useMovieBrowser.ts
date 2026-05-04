@@ -1,5 +1,7 @@
 import {useEffect, useState, type FormEvent} from 'react';
-import {getTrendingMovies, searchMovies, getVidsrcUrl, type MovieData} from '../services/movieService';
+import {getTrendingMovies, searchMovies, getTrailerUrl, getVidsrcUrl, type MovieData} from '../services/movieService';
+
+const PLAYER_READY_GRACE_MS = 1800;
 
 export default function useMovieBrowser() {
   const [movies, setMovies] = useState<MovieData[]>([]);
@@ -30,11 +32,23 @@ export default function useMovieBrowser() {
       setMovies(trending);
 
       if (trending.length > 0) {
-        setFeatured(trending[0]);
+        const candidates = trending
+          .filter((movie) => Boolean(movie.backdrop_path))
+          .slice(0, 6);
+
+        const trailerChecks = await Promise.all(
+          candidates.map(async (movie) => ({
+            movie,
+            trailerUrl: await getTrailerUrl(movie),
+          }))
+        );
+
+        const featuredWithTrailer = trailerChecks.find(({ trailerUrl }) => Boolean(trailerUrl))?.movie;
+        setFeatured(featuredWithTrailer ?? candidates[0] ?? trending[0]);
       }
     };
 
-    fetchData();
+    void fetchData();
   }, []);
 
   const handleSearch = async (event: FormEvent<HTMLFormElement>) => {
@@ -55,16 +69,15 @@ export default function useMovieBrowser() {
     setPlayerError(null);
     setIsPlayerLoading(true);
 
-    // Generate URL instantly - no async needed for vidsrc
-    const vidsrcUrl = getVidsrcUrl(movie.id);
-    
-    // Set player state immediately for instant playback
+    const vidsrcUrl = getVidsrcUrl(movie);
     setPlayerUrl(vidsrcUrl);
     setIsPlaying(true);
-    
-    // Show loading banner for a realistic duration to allow vidsrc to load
-    // This gives users feedback while the video player initializes
-    setTimeout(() => setIsPlayerLoading(false), 2000);
+  };
+
+  const handlePlayerReady = () => {
+    window.setTimeout(() => {
+      setIsPlayerLoading(false);
+    }, PLAYER_READY_GRACE_MS);
   };
 
   const openMovieDetails = (movie: MovieData, shouldAutoplay = false) => {
@@ -112,6 +125,7 @@ export default function useMovieBrowser() {
     openMovieDetails,
     playMovie,
     resetToBrowse,
+    handlePlayerReady,
     setIsMuted,
     setSearchQuery,
     setSearchResults,

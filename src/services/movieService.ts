@@ -17,7 +17,40 @@ export interface MovieData {
   release_date: string;
   vote_average: number;
   genre_ids: number[];
+  media_type?: 'movie' | 'tv' | 'animation';
+  /** Present for TV results (TMDB uses `name` instead of `title`). */
+  name?: string;
+  /** Present for TV results (TMDB uses `first_air_date` instead of `release_date`). */
+  first_air_date?: string;
 }
+
+export interface TVShowData {
+  id: number;
+  name: string;
+  overview: string;
+  poster_path: string;
+  backdrop_path: string;
+  first_air_date: string;
+  vote_average: number;
+  genre_ids: number[];
+  media_type: 'tv';
+}
+
+export interface AnimationData {
+  id: number;
+  title?: string;
+  name?: string;
+  overview: string;
+  poster_path: string;
+  backdrop_path: string;
+  release_date?: string;
+  first_air_date?: string;
+  vote_average: number;
+  genre_ids: number[];
+  media_type: 'movie' | 'tv' | 'animation';
+}
+
+export type ContentData = MovieData | TVShowData | AnimationData;
 
 interface MovieVideoResult {
   key: string;
@@ -25,6 +58,8 @@ interface MovieVideoResult {
   official: boolean;
   site: string;
   type: string;
+  iso_639_1?: string;
+  published_at?: string;
 }
 
 export interface TrailerData {
@@ -38,21 +73,137 @@ export interface TrailerData {
   videos: MovieVideoResult[];
 }
 
-export type VideoSource = 'vidsrcpro' | 'vidsrc';
+export type VideoSource = 'vidsrc';
+const trailerUrlCache = new Map<string, Promise<string | null>>();
 
-export const getVideoUrl = (id: number, source: VideoSource = 'vidsrcpro'): string => {
-  switch (source) {
-    case 'vidsrcpro':
-      return `https://vidsrc.pro/embed/movie/${id}`;
-    case 'vidsrc':
-      return `https://vidsrc.to/embed/movie/${id}`;
-    default:
-      return `https://vidsrc.pro/embed/movie/${id}`;
+export const isTvLikeContent = (item: Pick<MovieData, 'media_type' | 'genre_ids' | 'name' | 'title'>): boolean => {
+  if (item.media_type === 'tv') return true;
+  // Animated TV is still TV for embed purposes (episode/season navigation).
+  if (item.media_type === 'animation' && item.genre_ids?.includes(16) && item.name && !item.title) return true;
+  return false;
+};
+
+export const isAnimationContent = (item: Pick<MovieData, 'genre_ids'>): boolean => {
+  return item.genre_ids?.includes(16) ?? false;
+};
+
+export const getContentTitle = (item: Pick<MovieData, 'title' | 'name'>): string => {
+  return item.title || item.name || 'Untitled';
+};
+
+export const getContentReleaseDate = (item: Pick<MovieData, 'release_date' | 'first_air_date'>): string => {
+  return item.release_date || item.first_air_date || '';
+};
+
+export const getContentYear = (item: Pick<MovieData, 'release_date' | 'first_air_date'>): string => {
+  const date = getContentReleaseDate(item);
+  return date ? date.split('-')[0] : 'N/A';
+};
+
+export const getContentTypeLabel = (item: Pick<MovieData, 'media_type' | 'genre_ids' | 'name' | 'title'>): 'Movie' | 'TV Show' | 'Animation' => {
+  if (isTvLikeContent(item)) return 'TV Show';
+  if (item.media_type === 'animation') return 'Animation';
+  return 'Movie';
+};
+
+export const getContentStorageKey = (item: Pick<MovieData, 'id' | 'media_type' | 'genre_ids' | 'name' | 'title'>): string => {
+  return `${getContentTypeLabel(item).toLowerCase().replace(/\s+/g, '-')}:${item.id}`;
+};
+
+export const getVideoUrl = (
+  id: number,
+  mediaType: 'movie' | 'tv' | 'animation' = 'movie',
+  season?: number,
+  episode?: number
+): string => {
+  if (mediaType === 'tv') {
+    if (season && episode) {
+      return `https://vidsrc.to/embed/tv/${id}/${season}/${episode}`;
+    }
+    return `https://vidsrc.to/embed/tv/${id}`;
+  }
+  // Treat animated movies like movies for VidSrc embeds.
+  return `https://vidsrc.to/embed/movie/${id}`;
+};
+
+export const getVidsrcUrl = (item: Pick<MovieData, 'id' | 'media_type' | 'genre_ids' | 'name' | 'title'>, season = 1, episode = 1): string => {
+  const mediaType: 'movie' | 'tv' = isTvLikeContent(item) ? 'tv' : 'movie';
+  if (mediaType === 'tv') {
+    return getVideoUrl(item.id, 'tv', season, episode);
+  }
+  return getVideoUrl(item.id, 'movie');
+};
+
+const getTmdbVideoPath = (item: Pick<MovieData, 'id' | 'media_type' | 'genre_ids' | 'name' | 'title'>): string => {
+  return isTvLikeContent(item) ? `/tv/${item.id}/videos` : `/movie/${item.id}/videos`;
+};
+
+export interface TvSeasonSummary {
+  season_number: number;
+  episode_count: number;
+  name?: string;
+}
+
+export interface TvShowDetails {
+  id: number;
+  number_of_seasons: number;
+  seasons: TvSeasonSummary[];
+}
+
+export interface TvEpisodeDetails {
+  id: number;
+  name: string;
+  overview: string;
+  still_path: string | null;
+  air_date?: string;
+  episode_number: number;
+  season_number: number;
+}
+
+export const getTvShowDetails = async (tvId: number): Promise<TvShowDetails | null> => {
+  try {
+    const res = await fetch(`${TMDB_BASE_URL}/tv/${tvId}`, {headers: getHeaders()});
+    if (!res.ok) return null;
+    const data = await res.json();
+    return {
+      id: data.id,
+      number_of_seasons: data.number_of_seasons ?? 0,
+      seasons: (data.seasons ?? []).map((s: any) => ({
+        season_number: s.season_number,
+        episode_count: s.episode_count,
+        name: s.name
+      }))
+    };
+  } catch (err) {
+    console.error('TMDB TV Details Fetch Error:', err);
+    return null;
   }
 };
 
-export const getVidsrcUrl = (id: number): string => {
-  return getVideoUrl(id, 'vidsrcpro');
+export const getTvEpisodeDetails = async (
+  tvId: number,
+  seasonNumber: number,
+  episodeNumber: number
+): Promise<TvEpisodeDetails | null> => {
+  try {
+    const res = await fetch(`${TMDB_BASE_URL}/tv/${tvId}/season/${seasonNumber}/episode/${episodeNumber}`, {
+      headers: getHeaders()
+    });
+    if (!res.ok) return null;
+    const data = await res.json();
+    return {
+      id: data.id,
+      name: data.name ?? `Episode ${episodeNumber}`,
+      overview: data.overview ?? '',
+      still_path: data.still_path ?? null,
+      air_date: data.air_date,
+      episode_number: data.episode_number ?? episodeNumber,
+      season_number: data.season_number ?? seasonNumber
+    };
+  } catch (err) {
+    console.error('TMDB TV Episode Fetch Error:', err);
+    return null;
+  }
 };
 
 const getHeaders = () => ({
@@ -60,138 +211,156 @@ const getHeaders = () => ({
   'Content-Type': 'application/json'
 });
 
+const buildTrailerCacheKey = (item: number | Pick<MovieData, 'id' | 'media_type' | 'genre_ids' | 'name' | 'title'>) => {
+  if (typeof item === 'number') return `movie:${item}`;
+  return `${isTvLikeContent(item) ? 'tv' : 'movie'}:${item.id}`;
+};
+
+const scoreTrailerVideo = (video: MovieVideoResult): number => {
+  const normalizedName = video.name.toLowerCase();
+  let score = 0;
+
+  if (video.site === 'YouTube') score += 100;
+  if (video.type === 'Trailer') score += 40;
+  if (video.type === 'Teaser') score += 20;
+  if (video.official) score += 20;
+  if (video.iso_639_1 === 'en' || video.iso_639_1 === null) score += 10;
+  if (normalizedName.includes('official')) score += 8;
+  if (normalizedName.includes('main')) score += 6;
+  if (normalizedName.includes('final')) score += 4;
+
+  return score;
+};
+
+const selectBestTrailerVideo = (videos: MovieVideoResult[]): MovieVideoResult | null => {
+  const candidates = videos
+    .filter((video) => video.site === 'YouTube' && Boolean(video.key) && ['Trailer', 'Teaser'].includes(video.type))
+    .sort((a, b) => scoreTrailerVideo(b) - scoreTrailerVideo(a));
+
+  return candidates[0] ?? null;
+};
+
+const toYoutubeEmbedUrl = (videoKey: string) => {
+  return `https://www.youtube-nocookie.com/embed/${videoKey}?autoplay=1&rel=0&modestbranding=1`;
+};
+
 export const getTrendingMovies = async (): Promise<MovieData[]> => {
   try {
     const res = await fetch(`${TMDB_BASE_URL}/trending/movie/day`, {
       headers: getHeaders()
     });
     const data = await res.json();
-    return data.results || getFallbackMovies();
+    return data.results?.map((movie: any) => ({
+      ...movie,
+      media_type: 'movie'
+    })) || getFallbackMovies();
   } catch (err) {
     console.error('TMDB Fetch Error:', err);
     return getFallbackMovies();
   }
 };
 
-export const searchMovies = async (query: string): Promise<MovieData[]> => {
-  if (!query) return [];
-  
+export const getTrendingTVShows = async (): Promise<TVShowData[]> => {
   try {
-    // Use TMDB API to search for all movies
-    const res = await fetch(`${TMDB_BASE_URL}/search/movie?query=${encodeURIComponent(query)}&include_adult=false&language=en-US&page=1`, {
+    const res = await fetch(`${TMDB_BASE_URL}/trending/tv/day`, {
       headers: getHeaders()
     });
     const data = await res.json();
-    const results = data.results || [];
-    
-    // Transform TMDB results to MovieData format
-    const movies: MovieData[] = results.map((movie: any) => ({
-      id: movie.id,
-      title: movie.title,
-      overview: movie.overview || '',
-      poster_path: movie.poster_path || '',
-      backdrop_path: movie.backdrop_path || '',
-      release_date: movie.release_date || '',
-      vote_average: movie.vote_average || 0,
-      genre_ids: movie.genre_ids || []
-    }));
-    
-    return movies;
+    return data.results?.map((show: any) => ({
+      ...show,
+      title: show.name,
+      release_date: show.first_air_date,
+      media_type: 'tv'
+    })) || [];
   } catch (err) {
-    console.error('TMDB Search Error:', err);
-    
-    // Fallback to hardcoded list if API fails
-    const vidsrcCompatibleMovies: MovieData[] = [
-      {
-        id: 693134,
-        title: "Dune: Part Two",
-        overview: "Paul Atreides unites with Chani and the Fremen...",
-        poster_path: "/1pdfLvkbYvwOhVnCF3LpxnfbscC.jpg",
-        backdrop_path: "/1pdfLvkbYvwOhVnCF3LpxnfbscC.jpg",
-        release_date: "2024-03-01",
-        vote_average: 8.4,
-        genre_ids: [28, 12, 878]
-      },
-      {
-        id: 872585,
-        title: "Oppenheimer",
-        overview: "The story of the atomic bomb and J. Robert Oppenheimer...",
-        poster_path: "/8Gx9keQ4BmJdCv1J7uqh0eV9gJg.jpg",
-        backdrop_path: "/8Gx9keQ4BmJdCv1J7uqh0eV9gJg.jpg",
-        release_date: "2023-07-21",
-        vote_average: 8.4,
-        genre_ids: [18, 36, 10752]
-      },
-      {
-        id: 634649,
-        title: "Spider-Man: No Way Home",
-        overview: "Peter Parker is unmasked and no longer able to separate his normal life...",
-        poster_path: "/1g0dhYtWyWtSSTvTOB3U9zY9Vv6.jpg",
-        backdrop_path: "/iQFcwSG7CZpOMIuRYrSTP3pFCDf.jpg",
-        release_date: "2021-12-15",
-        vote_average: 8.0,
-        genre_ids: [28, 12, 878]
-      },
-      {
-        id: 299536,
-        title: "Avengers: Endgame",
-        overview: "The epic conclusion to the Infinity Saga...",
-        poster_path: "/or06FN3Dka5zwKSqRqU2IlMeRco.jpg",
-        backdrop_path: "/or06FN3Dka5zwKSqRqU2IlMeRco.jpg",
-        release_date: "2019-04-24",
-        vote_average: 8.4,
-        genre_ids: [28, 12, 878]
-      },
-      {
-        id: 475557,
-        title: "Joker",
-        overview: "Arthur Fleck's transformation into the Joker...",
-        poster_path: "/udDclJoHjfjb8Ekgsd4RD3Ry6vq.jpg",
-        backdrop_path: "/udDclJoHjfjb8Ekgsd4RD3Ry6vq.jpg",
-        release_date: "2019-10-04",
-        vote_average: 8.4,
-        genre_ids: [18, 80, 53]
-      },
-      {
-        id: 361743,
-        title: "Top Gun: Maverick",
-        overview: "After thirty years, Maverick is still pushing the envelope...",
-        poster_path: "/j3L1kQgPnB6nJc4hLwD2hG0hG2.jpg",
-        backdrop_path: "/j3L1kQgPnB6nJc4hLwD2hG0hG2.jpg",
-        release_date: "2022-05-27",
-        vote_average: 8.3,
-        genre_ids: [28, 12, 18]
-      },
-      {
-        id: 578,
-        title: "Dune",
-        overview: "Paul Atreides, a brilliant and gifted young man...",
-        poster_path: "/d5NXSklZfsNcSR9pWhv97NVpms6.jpg",
-        backdrop_path: "/lz21LZEjG7mS7AgmQO0LYG9YmQQ.jpg",
-        release_date: "2021-09-15",
-        vote_average: 7.8,
-        genre_ids: [12, 18, 878]
-      },
-      {
-        id: 299537,
-        title: "Avengers: Infinity War",
-        overview: "The Avengers and their allies must be willing to sacrifice all...",
-        poster_path: "/7WsyChQLEftNiDO6GvyIzR4RbUv.jpg",
-        backdrop_path: "/7WsyChQLEftNiDO6GvyIzR4RbUv.jpg",
-        release_date: "2018-04-27",
-        vote_average: 8.4,
-        genre_ids: [28, 12, 878]
-      }
+    console.error('TMDB TV Shows Fetch Error:', err);
+    return [];
+  }
+};
+
+export const getTrendingAnimations = async (): Promise<AnimationData[]> => {
+  try {
+    // Fetch animated movies and TV shows
+    const [animatedMovies, animatedTVShows] = await Promise.all([
+      fetch(`${TMDB_BASE_URL}/discover/movie?with_genres=16&sort_by=popularity.desc&page=1`, {
+        headers: getHeaders()
+      }),
+      fetch(`${TMDB_BASE_URL}/discover/tv?with_genres=16&sort_by=popularity.desc&page=1`, {
+        headers: getHeaders()
+      })
+    ]);
+
+    const [moviesData, tvData] = await Promise.all([
+      animatedMovies.json(),
+      animatedTVShows.json()
+    ]);
+
+    const animations: AnimationData[] = [
+      ...(moviesData.results?.map((movie: any) => ({
+        ...movie,
+        media_type: 'movie'
+      })) || []),
+      ...(tvData.results?.map((show: any) => ({
+        ...show,
+        title: show.name,
+        release_date: show.first_air_date,
+        media_type: 'tv'
+      })) || [])
     ];
 
-    // Filter movies based on search query
-    const filteredMovies = vidsrcCompatibleMovies.filter(movie => 
-      movie.title.toLowerCase().includes(query.toLowerCase()) ||
-      movie.overview.toLowerCase().includes(query.toLowerCase())
-    );
-
-    return filteredMovies;
+    return animations.sort((a, b) => (b.vote_average || 0) - (a.vote_average || 0));
+  } catch (err) {
+    console.error('TMDB Animations Fetch Error:', err);
+    return [];
   }
+};
+
+export const searchAllContent = async (query: string): Promise<ContentData[]> => {
+  if (!query) return [];
+  
+  try {
+    // Search across movies, TV shows, and animations
+    const [moviesRes, tvRes] = await Promise.all([
+      fetch(`${TMDB_BASE_URL}/search/movie?query=${encodeURIComponent(query)}&include_adult=false&language=en-US&page=1`, {
+        headers: getHeaders()
+      }),
+      fetch(`${TMDB_BASE_URL}/search/tv?query=${encodeURIComponent(query)}&include_adult=false&language=en-US&page=1`, {
+        headers: getHeaders()
+      })
+    ]);
+
+    const [moviesData, tvData] = await Promise.all([
+      moviesRes.json(),
+      tvRes.json()
+    ]);
+
+    const allContent: ContentData[] = [
+      ...(moviesData.results?.map((movie: any) => ({
+        ...movie,
+        media_type: 'movie'
+      })) || []),
+      ...(tvData.results?.map((show: any) => ({
+        ...show,
+        title: show.name,
+        release_date: show.first_air_date,
+        media_type: 'tv'
+      })) || [])
+    ];
+
+    const dedupedContent = allContent.filter((item, index, items) => {
+      const key = `${item.media_type}:${item.id}`;
+      return items.findIndex((candidate) => `${candidate.media_type}:${candidate.id}` === key) === index;
+    });
+
+    return dedupedContent.sort((a, b) => (b.vote_average || 0) - (a.vote_average || 0));
+  } catch (err) {
+    console.error('TMDB Search All Content Error:', err);
+    return [];
+  }
+};
+
+export const searchMovies = async (query: string): Promise<ContentData[]> => {
+  return searchAllContent(query);
 };
 
 export const searchMoviesByLetter = async (letter: string): Promise<MovieData[]> => {
@@ -346,35 +515,35 @@ export const getImageUrl = (path: string, size: 'w500' | 'original' = 'w500') =>
   return `https://image.tmdb.org/t/p/${size}${path}`;
 };
 
-export const getTrailerUrl = async (movieId: number): Promise<string | null> => {
-  try {
-    const res = await fetch(`${TMDB_BASE_URL}/movie/${movieId}/videos`, {
-      headers: getHeaders()
-    });
-    const data = await res.json();
-    const videos = data.results || [];
+export const getTrailerUrl = async (
+  item: number | Pick<MovieData, 'id' | 'media_type' | 'genre_ids' | 'name' | 'title'>
+): Promise<string | null> => {
+  const cacheKey = buildTrailerCacheKey(item);
+  const cached = trailerUrlCache.get(cacheKey);
+  if (cached) return cached;
 
-    const trailer = videos.find((video) =>
-      video.site === 'YouTube' &&
-      video.type === 'Trailer' &&
-      video.official
-    ) ?? videos.find((video) =>
-      video.site === 'YouTube' &&
-      video.type === 'Trailer'
-    ) ?? videos.find((video) =>
-      video.site === 'YouTube' &&
-      video.type === 'Teaser'
-    );
+  const trailerPromise = (async () => {
+    try {
+      const path = typeof item === 'number' ? `/movie/${item}/videos` : getTmdbVideoPath(item);
+      const res = await fetch(`${TMDB_BASE_URL}${path}`, {
+        headers: getHeaders()
+      });
+      const data = await res.json();
+      const trailer = selectBestTrailerVideo(data.results || []);
 
-    if (!trailer?.key) {
+      if (!trailer?.key) {
+        return null;
+      }
+
+      return toYoutubeEmbedUrl(trailer.key);
+    } catch (err) {
+      console.error('TMDB Trailer Fetch Error:', err);
       return null;
     }
+  })();
 
-    return `https://www.youtube-nocookie.com/embed/${trailer.key}?autoplay=1&rel=0&modestbranding=1`;
-  } catch (err) {
-    console.error('TMDB Trailer Fetch Error:', err);
-    return null;
-  }
+  trailerUrlCache.set(cacheKey, trailerPromise);
+  return trailerPromise;
 };
 
 export const getTrailers = async (): Promise<TrailerData[]> => {
@@ -394,17 +563,12 @@ export const getTrailers = async (): Promise<TrailerData[]> => {
             headers: getHeaders()
           });
           const videoData = await videoRes.json();
-          const videos = videoData.results || [];
+          const bestTrailer = selectBestTrailerVideo(videoData.results || []);
 
-          // Filter for YouTube trailers
-          const youtubeTrailers = videos.filter((v: MovieVideoResult) => 
-            v.site === 'YouTube' && (v.type === 'Trailer' || v.type === 'Teaser')
-          );
-
-          if (youtubeTrailers.length > 0) {
+          if (bestTrailer) {
             return {
               ...movie,
-              videos: youtubeTrailers
+              videos: [bestTrailer]
             } as TrailerData;
           }
           return null;
@@ -427,7 +591,9 @@ export const genreMap: { [key: number]: string } = {
   28: "Action", 12: "Adventure", 16: "Animation", 35: "Comedy", 80: "Crime",
   99: "Documentary", 18: "Drama", 10751: "Family", 14: "Fantasy", 36: "History",
   27: "Horror", 10402: "Music", 9648: "Mystery", 10749: "Romance", 878: "Sci-Fi",
-  10770: "TV Movie", 53: "Thriller", 10752: "War", 37: "Western"
+  10770: "TV Movie", 53: "Thriller", 10752: "War", 37: "Western",
+  10759: "Action & Adventure", 10762: "Kids", 10763: "News", 10764: "Reality",
+  10765: "Sci-Fi & Fantasy", 10766: "Soap", 10767: "Talk", 10768: "War & Politics"
 };
 
 export const getGenreNames = (ids: number[] = []) => {

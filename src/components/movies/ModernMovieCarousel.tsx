@@ -115,7 +115,7 @@ export default function ModernMovieCarousel({
     <section className={`space-y-6 ${className}`}>
       {/* Header */}
       <div className="px-4 sm:px-6 lg:px-8">
-        <div className="flex items-center justify-between">
+        <div className="flex items-center justify-between rounded-[28px] border border-white/10 bg-black/45 px-5 py-5 shadow-2xl shadow-black/25 backdrop-blur-xl sm:px-6">
           <div className="space-y-2">
             <div className="flex items-center gap-3">
               {title.includes('Trending') && (
@@ -124,12 +124,12 @@ export default function ModernMovieCarousel({
               {title.includes('Popular') && (
                 <Sparkles className="w-6 h-6 text-yellow-500" />
               )}
-              <h2 className="text-2xl sm:text-3xl lg:text-4xl font-bold text-white">
+              <h2 className="text-2xl font-bold text-white sm:text-3xl lg:text-4xl">
                 {title}
               </h2>
             </div>
             {subtitle && (
-              <p className="text-gray-400 text-sm sm:text-base max-w-2xl">
+              <p className="max-w-2xl text-sm text-gray-400 sm:text-base">
                 {subtitle}
               </p>
             )}
@@ -142,10 +142,10 @@ export default function ModernMovieCarousel({
               whileTap={{ scale: 0.95 }}
               onClick={() => scroll('left')}
               disabled={!canScrollLeft}
-              className={`p-3 rounded-full transition-all ${
+              className={`rounded-full border p-3 transition-all ${
                 canScrollLeft
-                  ? 'bg-white/10 hover:bg-white/20 text-white'
-                  : 'bg-white/5 text-gray-600 cursor-not-allowed'
+                  ? 'border-white/10 bg-white/10 text-white hover:bg-white/20'
+                  : 'cursor-not-allowed border-white/5 bg-white/5 text-gray-600'
               }`}
             >
               <ChevronLeft className="w-5 h-5" />
@@ -155,10 +155,10 @@ export default function ModernMovieCarousel({
               whileTap={{ scale: 0.95 }}
               onClick={() => scroll('right')}
               disabled={!canScrollRight}
-              className={`p-3 rounded-full transition-all ${
+              className={`rounded-full border p-3 transition-all ${
                 canScrollRight
-                  ? 'bg-white/10 hover:bg-white/20 text-white'
-                  : 'bg-white/5 text-gray-600 cursor-not-allowed'
+                  ? 'border-white/10 bg-white/10 text-white hover:bg-white/20'
+                  : 'cursor-not-allowed border-white/5 bg-white/5 text-gray-600'
               }`}
             >
               <ChevronRight className="w-5 h-5" />
@@ -179,7 +179,7 @@ export default function ModernMovieCarousel({
               whileHover={{ scale: 1.05 }}
               whileTap={{ scale: 0.95 }}
               onClick={() => scroll('left')}
-              className="sm:hidden absolute left-2 top-1/2 -translate-y-1/2 z-20 p-2 rounded-full bg-black/80 backdrop-blur-sm text-white"
+              className="absolute left-14 top-1/2 z-20 rounded-full border border-white/10 bg-black/80 p-2 text-white backdrop-blur-sm sm:hidden"
             >
               <ChevronLeft className="w-4 h-4" />
             </motion.button>
@@ -195,7 +195,7 @@ export default function ModernMovieCarousel({
               whileHover={{ scale: 1.05 }}
               whileTap={{ scale: 0.95 }}
               onClick={() => scroll('right')}
-              className="sm:hidden absolute right-2 top-1/2 -translate-y-1/2 z-20 p-2 rounded-full bg-black/80 backdrop-blur-sm text-white"
+              className="absolute right-2 top-1/2 z-20 rounded-full border border-white/10 bg-black/80 p-2 text-white backdrop-blur-sm sm:hidden"
             >
               <ChevronRight className="w-4 h-4" />
             </motion.button>
@@ -205,7 +205,7 @@ export default function ModernMovieCarousel({
         {/* Movie Cards Container */}
         <div
           ref={carouselRef}
-          className="flex gap-3 sm:gap-4 lg:gap-6 overflow-x-auto scrollbar-hide px-4 sm:px-6 lg:px-8 pb-4"
+          className="flex gap-3 overflow-x-auto scrollbar-hide pb-4 pl-16 pr-4 sm:gap-4 sm:pl-20 sm:pr-6 lg:gap-6 lg:pl-24 lg:pr-8"
           onScroll={handleScroll}
           onMouseDown={handleMouseDown}
           onMouseMove={handleMouseMove}
@@ -237,13 +237,13 @@ export default function ModernMovieCarousel({
         </div>
 
         {/* Gradient Edges */}
-        <div className="absolute left-0 top-0 bottom-0 w-8 sm:w-12 bg-gradient-to-r from-black via-black/50 to-transparent pointer-events-none z-10" />
+        <div className="pointer-events-none absolute bottom-0 left-0 top-0 z-10 w-20 bg-gradient-to-r from-black via-black/70 to-transparent sm:w-24" />
         <div className="absolute right-0 top-0 bottom-0 w-8 sm:w-12 bg-gradient-to-l from-black via-black/50 to-transparent pointer-events-none z-10" />
       </div>
 
       {/* Scroll Progress Indicator */}
       <div className="px-4 sm:px-6 lg:px-8">
-        <div className="w-full h-1 bg-white/10 rounded-full overflow-hidden">
+        <div className="h-1 w-full overflow-hidden rounded-full bg-white/10">
           <motion.div
             className="h-full bg-gradient-to-r from-red-600 to-red-500"
             initial={{ width: 0 }}

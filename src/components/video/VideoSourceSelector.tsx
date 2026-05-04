@@ -10,8 +10,7 @@ interface VideoSourceSelectorProps {
 }
 
 const sources = [
-  { id: 'vidsrcpro' as VideoSource, name: 'VidSrc.pro', icon: PlayCircle, color: 'green' },
-  { id: 'vidsrc' as VideoSource, name: 'VidSrc', icon: Video, color: 'red' },
+  { id: 'vidsrc' as VideoSource, name: 'VidSrc.to', icon: Video, color: 'red' },
 ];
 
 export default function VideoSourceSelector({ currentSource, onSourceChange, disabled = false }: VideoSourceSelectorProps) {
