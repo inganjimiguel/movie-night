@@ -43,9 +43,9 @@ export default function AppRouter() {
       case 'home':
         return <HomePage navigateTo={navigateTo} />;
       case 'favorites':
-        return <FavoritesPage />;
+        return <FavoritesPage navigateTo={navigateTo} />;
       case 'watchlater':
-        return <WatchLaterPage />;
+        return <WatchLaterPage navigateTo={navigateTo} />;
       case 'tvshows':
         return <TVShowsPage />;
       case 'trailers':

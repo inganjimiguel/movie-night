@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { Search } from 'lucide-react';
 import ModernFeaturedHero from '../../components/movies/ModernFeaturedHero';
 import ModernMovieCarousel from '../../components/movies/ModernMovieCarousel';
@@ -10,7 +10,17 @@ import SophisticatedSidePanels from '../../components/layout/SophisticatedSidePa
 import BackToHomeNavbar from '../../components/layout/BackToHomeNavbar';
 import AllMovies from '../../components/movies/AllMovies';
 import useMovieBrowser from '../../hooks/useMovieBrowser';
-import { getTrendingMovies, getTrendingTVShows, getTrendingAnimations, isAnimationContent, searchAllContent, type ContentData } from '../../services/movieService';
+import {
+  getContentReleaseDate,
+  getContentStorageKey,
+  getNewReleaseMovies,
+  getTrendingAnimations,
+  getTrendingMovies,
+  getTrendingTVShows,
+  isAnimationContent,
+  searchAllContent,
+  type ContentData
+} from '../../services/movieService';
 import '../../styles/responsive.css';
 
 interface HomePageProps {
@@ -39,14 +49,70 @@ export default function HomePage({ navigateTo }: HomePageProps = {}) {
     setIsSearching,
   } = useMovieBrowser();
 
-  const [filteredResults, setFilteredResults] = useState<ContentData[]>([]);
   const [selectedGenre, setSelectedGenre] = useState<number>(0);
   const [tvShows, setTVShows] = useState<ContentData[]>([]);
   const [animations, setAnimations] = useState<ContentData[]>([]);
+  const [newReleases, setNewReleases] = useState<ContentData[]>([]);
   const [activeTab, setActiveTab] = useState<'movies' | 'tv' | 'animations'>('movies');
 
+  const allBrowseContent = useMemo(() => {
+    const combined = [...movies, ...tvShows, ...animations];
+    return combined.filter((item, index, items) => {
+      const key = getContentStorageKey(item);
+      return items.findIndex((candidate) => getContentStorageKey(candidate) === key) === index;
+    });
+  }, [animations, movies, tvShows]);
   const currentContent = activeTab === 'movies' ? movies : activeTab === 'tv' ? tvShows : animations;
-  const availableGenreIds = Array.from(new Set(currentContent.flatMap((item) => item.genre_ids))).sort((a, b) => a - b);
+  const availableGenreIds = useMemo(() => {
+    const movieGenres = [12, 14, 16, 18, 27, 28, 35, 36, 37, 53, 80, 99, 878, 9648, 10402, 10749, 10751, 10752, 10770];
+    const tvGenres = [16, 35, 37, 80, 99, 9648, 10751, 10759, 10762, 10763, 10764, 10765, 10766, 10767, 10768];
+    const animationGenres = [12, 14, 16, 18, 28, 35, 878, 10751, 10759, 10765];
+    const currentGenreIds = allBrowseContent.flatMap((item) => item.genre_ids);
+
+    return Array.from(new Set([...movieGenres, ...tvGenres, ...animationGenres, ...currentGenreIds])).sort((a, b) => a - b);
+  }, [allBrowseContent]);
+  const currentFeatured = useMemo(() => {
+    if (activeTab === 'movies') {
+      return featured;
+    }
+
+    return currentContent.find((item) => Boolean(item.backdrop_path)) ?? currentContent[0] ?? null;
+  }, [activeTab, currentContent, featured]);
+  const currentFeaturedKey = currentFeatured ? getContentStorageKey(currentFeatured) : null;
+  const featuredRemovedContent = useMemo(() => {
+    if (!currentFeaturedKey) {
+      return currentContent;
+    }
+
+    return currentContent.filter((item) => getContentStorageKey(item) !== currentFeaturedKey);
+  }, [currentContent, currentFeaturedKey]);
+  const genreResults = useMemo(() => {
+    if (selectedGenre === 0) {
+      return [];
+    }
+
+    return allBrowseContent.filter((item) => item.genre_ids.includes(selectedGenre));
+  }, [allBrowseContent, selectedGenre]);
+  const movieNewReleases = useMemo(() => {
+    const seen = new Set<string>();
+    const filtered = newReleases.filter((item) => {
+      const itemKey = getContentStorageKey(item);
+      if (itemKey === currentFeaturedKey || seen.has(itemKey)) {
+        return false;
+      }
+
+      seen.add(itemKey);
+      return true;
+    });
+
+    if (filtered.length > 0) {
+      return filtered;
+    }
+
+    return [...featuredRemovedContent]
+      .sort((a, b) => new Date(getContentReleaseDate(b)).getTime() - new Date(getContentReleaseDate(a)).getTime())
+      .slice(0, 10);
+  }, [currentFeaturedKey, featuredRemovedContent, newReleases]);
 
   const filterResultsByActiveTab = (results: ContentData[]) => {
     if (activeTab === 'movies') {
@@ -60,20 +126,16 @@ export default function HomePage({ navigateTo }: HomePageProps = {}) {
     return results.filter((item) => isAnimationContent(item));
   };
   const handleGenreSelect = (genreId: number) => {
+    setSearchQuery('');
+    setSearchResults([]);
+    setIsSearching(false);
     setSelectedGenre(genreId);
-    if (genreId === 0) {
-      setFilteredResults([]);
-    } else {
-      const filtered = currentContent.filter(item => item.genre_ids.includes(genreId));
-      setFilteredResults(filtered);
-    }
   };
 
   const handleOptimizedSearch = async (query: string) => {
     setSearchQuery(query);
     
     if (!query.trim()) {
-      setFilteredResults([]);
       setSearchResults([]);
       setIsSearching(false);
       return;
@@ -87,34 +149,34 @@ export default function HomePage({ navigateTo }: HomePageProps = {}) {
   // Fetch all content types on mount
   useEffect(() => {
     const fetchAllContent = async () => {
-      const [moviesData, tvData, animationsData] = await Promise.all([
+      const [moviesData, tvData, animationsData, newReleaseData] = await Promise.all([
         getTrendingMovies(),
         getTrendingTVShows(),
-        getTrendingAnimations()
+        getTrendingAnimations(),
+        getNewReleaseMovies()
       ]);
       
       setTVShows(tvData);
       setAnimations(animationsData);
+      setNewReleases(newReleaseData);
     };
 
     fetchAllContent();
   }, []);
 
   const handleBackToHome = () => {
-    setFilteredResults([]);
     resetToBrowse();
   };
 
-  useEffect(() => {
+  const filteredResults = useMemo(() => {
     if (!searchQuery || searchResults.length === 0) {
-      setFilteredResults([]);
-      return;
+      return [];
     }
 
     const filtered = [...searchResults];
     filtered.sort((a, b) => (b.vote_average || 0) - (a.vote_average || 0));
-    setFilteredResults(filtered);
-  }, [searchResults, searchQuery]);
+    return filtered;
+  }, [searchQuery, searchResults]);
 
   useEffect(() => {
     if (!searchQuery.trim()) {
@@ -134,22 +196,16 @@ export default function HomePage({ navigateTo }: HomePageProps = {}) {
     };
   }, [activeTab]);
 
-  useEffect(() => {
-    if (selectedGenre === 0) {
-      return;
-    }
-
-    const filtered = currentContent.filter((item) => item.genre_ids.includes(selectedGenre));
-    setFilteredResults(filtered);
-  }, [activeTab, currentContent, selectedGenre]);
-
   return (
     <div className="min-h-screen bg-black overflow-x-hidden selection:bg-red-600 selection:text-white">
       {/* Back to Home Navbar */}
-      <BackToHomeNavbar 
-        isVisible={!!searchQuery}
-        onBackToHome={handleBackToHome}
-        searchQuery={searchQuery}
+      <BackToHomeNavbar
+        isVisible={!!searchQuery || selectedGenre > 0}
+        onBackToHome={() => {
+          setSelectedGenre(0);
+          handleBackToHome();
+        }}
+        label={selectedGenre > 0 ? 'Back to Home' : 'Back to Search'}
       />
 
       {/* Navigation Tabs and Search */}
@@ -230,7 +286,8 @@ export default function HomePage({ navigateTo }: HomePageProps = {}) {
           <button
             onClick={() => {
               setSearchQuery('');
-              setFilteredResults([]);
+              setSearchResults([]);
+              setIsSearching(false);
             }}
             className="px-6 py-3 bg-red-600 text-white font-medium rounded-lg hover:bg-red-700 transition-colors"
           >
@@ -242,12 +299,12 @@ export default function HomePage({ navigateTo }: HomePageProps = {}) {
           <div className="mb-6 rounded-[28px] border border-white/10 bg-black/45 px-5 py-5 shadow-2xl shadow-black/25 backdrop-blur-xl">
             <h2 className="text-2xl font-bold text-white mb-2">Genre Results</h2>
             <p className="text-gray-400">
-              {filteredResults.length} movies found
+              {genreResults.length} titles found
             </p>
           </div>
           <div className="grid grid-cols-2 gap-3 pb-12 sm:grid-cols-3 sm:gap-6 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6">
-            {filteredResults.map((movie, index) => (
-              <div key={movie.id} className="transform transition-all duration-300 hover:scale-105">
+            {genreResults.map((movie) => (
+              <div key={getContentStorageKey(movie)} className="transform transition-all duration-300 hover:scale-105">
                 <ModernMovieCard
                   movie={movie}
                   layout="poster"
@@ -260,20 +317,20 @@ export default function HomePage({ navigateTo }: HomePageProps = {}) {
         </div>
       ) : (
         <>
-          {featured && activeTab === 'movies' && (
+          {currentFeatured && (
             <ModernFeaturedHero
-              movie={featured}
+              movie={currentFeatured}
               isMuted={false}
               onToggleMute={() => {}}
-              onPlay={() => openMovieDetails(featured, true)}
+              onPlay={() => openMovieDetails(currentFeatured, true)}
             />
           )}
 
-          <main className={`relative ${activeTab === 'movies' && featured ? 'mt-8 sm:mt-10 lg:mt-12' : 'mt-6 sm:mt-8'} z-10 pb-20 sm:pb-24 space-y-10 sm:space-y-14 lg:space-y-20 w-full overflow-x-hidden`}>
+          <main className={`relative ${currentFeatured ? 'mt-8 sm:mt-10 lg:mt-12' : 'mt-6 sm:mt-8'} z-10 pb-20 sm:pb-24 space-y-10 sm:space-y-14 lg:space-y-20 w-full overflow-x-hidden`}>
             {activeTab === 'movies' && (
               <>
                 <ModernMovieCarousel
-                  movies={movies}
+                  movies={featuredRemovedContent}
                   title="Trending Movies"
                   subtitle="The most popular movies right now"
                   onMovieSelect={(movie) => openMovieDetails(movie)}
@@ -282,9 +339,17 @@ export default function HomePage({ navigateTo }: HomePageProps = {}) {
                 />
 
                 <ModernMovieCarousel
-                  movies={movies.slice(5, 13)}
-                  title="Popular Movies"
-                  subtitle="Discover what other movie lovers are watching"
+                  movies={featuredRemovedContent.slice(4, 12)}
+                  title="Popular on MovieNight"
+                  subtitle="Popular on Movie Night"
+                  onMovieSelect={(movie) => openMovieDetails(movie)}
+                  autoScroll={false}
+                />
+
+                <ModernMovieCarousel
+                  movies={movieNewReleases}
+                  title="New Releases"
+                  subtitle="Fresh movie drops and recent premieres"
                   onMovieSelect={(movie) => openMovieDetails(movie)}
                   autoScroll={false}
                 />
@@ -294,7 +359,7 @@ export default function HomePage({ navigateTo }: HomePageProps = {}) {
             {activeTab === 'tv' && (
               <>
                 <ModernMovieCarousel
-                  movies={tvShows}
+                  movies={featuredRemovedContent}
                   title="Trending TV Shows"
                   subtitle="The most popular TV shows right now"
                   onMovieSelect={(show) => openMovieDetails(show)}
@@ -302,7 +367,7 @@ export default function HomePage({ navigateTo }: HomePageProps = {}) {
                 />
 
                 <ModernMovieCarousel
-                  movies={tvShows.slice(5, 13)}
+                  movies={featuredRemovedContent.slice(4, 12)}
                   title="Popular TV Shows"
                   subtitle="Discover what other viewers are watching"
                   onMovieSelect={(show) => openMovieDetails(show)}
@@ -314,7 +379,7 @@ export default function HomePage({ navigateTo }: HomePageProps = {}) {
             {activeTab === 'animations' && (
               <>
                 <ModernMovieCarousel
-                  movies={animations}
+                  movies={featuredRemovedContent}
                   title="Trending Animations"
                   subtitle="The most popular animated content right now"
                   onMovieSelect={(animation) => openMovieDetails(animation)}
@@ -322,7 +387,7 @@ export default function HomePage({ navigateTo }: HomePageProps = {}) {
                 />
 
                 <ModernMovieCarousel
-                  movies={animations.slice(5, 13)}
+                  movies={featuredRemovedContent.slice(4, 12)}
                   title="Popular Animations"
                   subtitle="Discover amazing animated stories"
                   onMovieSelect={(animation) => openMovieDetails(animation)}

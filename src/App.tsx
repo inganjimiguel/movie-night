@@ -58,7 +58,7 @@ export default function App() {
           cursor: 'pointer',
           border: '2px solid #b91c1c',
           boxShadow: '0 4px 15px rgba(220, 38, 38, 0.5)',
-          zIndex: 100,
+          zIndex: 180,
           fontFamily: 'Arial, sans-serif',
           display: 'flex',
           alignItems: 'center',

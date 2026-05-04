@@ -1,8 +1,18 @@
-import React, { useState, useEffect, useRef } from 'react';
-import { motion, AnimatePresence } from 'motion/react';
-import { Play, X, Star, Calendar, ArrowRight, Loader2 } from 'lucide-react';
-import { getTrailers, getVidsrcUrl, getImageUrl, type TrailerData, type MovieData } from '../../services/movieService';
+import { useEffect, useRef, useState } from 'react';
+import { AnimatePresence, motion } from 'motion/react';
+import { ArrowRight, Calendar, Loader2, Play, Sparkles, Star, Tv2, X } from 'lucide-react';
 import ModernMovieDetailsModal from '../../components/movies/ModernMovieDetailsModal';
+import {
+  getContentReleaseDate,
+  getContentTitle,
+  getContentTypeLabel,
+  getContentYear,
+  getImageUrl,
+  getTrailerUrl,
+  getUpcomingContent,
+  type ContentData,
+  type MovieData,
+} from '../../services/movieService';
 
 interface TrailersPageProps {
   navigateTo?: (path: string) => void;
@@ -10,15 +20,31 @@ interface TrailersPageProps {
 
 const PLAYER_READY_GRACE_MS = 1800;
 
+const contentTypeStyles = {
+  Movie: {
+    icon: Play,
+    className: 'bg-red-600/90 text-white border border-red-400/40',
+  },
+  'TV Show': {
+    icon: Tv2,
+    className: 'bg-sky-600/90 text-white border border-sky-400/40',
+  },
+  Animation: {
+    icon: Sparkles,
+    className: 'bg-amber-500/90 text-black border border-amber-300/50',
+  },
+} as const;
+
 export default function TrailersPage({ navigateTo }: TrailersPageProps = {}) {
-  const [trailers, setTrailers] = useState<TrailerData[]>([]);
+  const [upcomingItems, setUpcomingItems] = useState<ContentData[]>([]);
   const [loading, setLoading] = useState(true);
   const [currentIndex, setCurrentIndex] = useState(0);
   const [isPlaying, setIsPlaying] = useState(false);
-  const [isMuted, setIsMuted] = useState(true);
+  const [currentTrailerUrl, setCurrentTrailerUrl] = useState<string | null>(null);
+  const [loadingTrailerId, setLoadingTrailerId] = useState<number | null>(null);
+  const [trailerMessage, setTrailerMessage] = useState<string | null>(null);
   const containerRef = useRef<HTMLDivElement>(null);
-  
-  // Movie details modal state
+
   const [selectedMovie, setSelectedMovie] = useState<MovieData | null>(null);
   const [isModalPlaying, setIsModalPlaying] = useState(false);
   const [isPlayerLoading, setIsPlayerLoading] = useState(false);
@@ -26,45 +52,55 @@ export default function TrailersPage({ navigateTo }: TrailersPageProps = {}) {
   const [playerUrl, setPlayerUrl] = useState<string | null>(null);
 
   useEffect(() => {
-    const fetchTrailers = async () => {
+    const fetchUpcoming = async () => {
       try {
-        const data = await getTrailers();
-        setTrailers(data);
+        const data = await getUpcomingContent();
+        setUpcomingItems(data);
       } catch (error) {
-        console.error('Error fetching trailers:', error);
+        console.error('Error fetching upcoming content:', error);
       } finally {
         setLoading(false);
       }
     };
 
-    fetchTrailers();
+    void fetchUpcoming();
   }, []);
 
-  const handleScroll = (e: React.UIEvent<HTMLDivElement>) => {
-    const container = e.currentTarget;
+  const resetActiveTrailerState = () => {
+    setIsPlaying(false);
+    setCurrentTrailerUrl(null);
+    setLoadingTrailerId(null);
+    setTrailerMessage(null);
+  };
+
+  const handleScroll = (event: React.UIEvent<HTMLDivElement>) => {
+    const container = event.currentTarget;
     const scrollTop = container.scrollTop;
     const itemHeight = window.innerHeight;
     const newIndex = Math.round(scrollTop / itemHeight);
-    
-    if (newIndex !== currentIndex && newIndex >= 0 && newIndex < trailers.length) {
+
+    if (newIndex !== currentIndex && newIndex >= 0 && newIndex < upcomingItems.length) {
       setCurrentIndex(newIndex);
-      setIsPlaying(false);
+      resetActiveTrailerState();
     }
   };
 
-  const handleWatchNow = (trailer: TrailerData) => {
-    // Convert TrailerData to MovieData format for the modal
-    const movieData: MovieData = {
-      id: trailer.id,
-      title: trailer.title,
-      overview: trailer.overview,
-      poster_path: trailer.poster_path,
-      backdrop_path: trailer.backdrop_path,
-      release_date: trailer.release_date,
-      vote_average: trailer.vote_average,
-      genre_ids: []
-    };
-    setSelectedMovie(movieData);
+  const toMovieData = (item: ContentData): MovieData => ({
+    id: item.id,
+    title: getContentTitle(item),
+    name: item.name,
+    overview: item.overview,
+    poster_path: item.poster_path,
+    backdrop_path: item.backdrop_path,
+    release_date: getContentReleaseDate(item),
+    first_air_date: item.first_air_date,
+    vote_average: item.vote_average,
+    genre_ids: item.genre_ids || [],
+    media_type: item.media_type,
+  });
+
+  const handleWatchNow = (item: ContentData) => {
+    setSelectedMovie(toMovieData(item));
     setIsModalPlaying(false);
     setPlayerUrl(null);
     setPlayerError(null);
@@ -78,12 +114,12 @@ export default function TrailersPage({ navigateTo }: TrailersPageProps = {}) {
   };
 
   const handlePlayMovie = () => {
-    if (selectedMovie) {
-      setIsModalPlaying(true);
-      setIsPlayerLoading(true);
-      setPlayerError(null);
-      setPlayerUrl(getVidsrcUrl(selectedMovie));
-    }
+    if (!selectedMovie) return;
+
+    setIsModalPlaying(true);
+    setIsPlayerLoading(true);
+    setPlayerError(null);
+    setPlayerUrl(null);
   };
 
   const handlePlayerReady = () => {
@@ -92,166 +128,191 @@ export default function TrailersPage({ navigateTo }: TrailersPageProps = {}) {
     }, PLAYER_READY_GRACE_MS);
   };
 
-  const handlePlayTrailer = (trailer: TrailerData) => {
-    setIsPlaying(true);
+  const handlePlayTrailer = async (item: ContentData, index: number) => {
+    setLoadingTrailerId(item.id);
+    setTrailerMessage(null);
+
+    try {
+      const trailerUrl = await getTrailerUrl(item);
+
+      if (index !== currentIndex) {
+        return;
+      }
+
+      if (trailerUrl) {
+        setCurrentTrailerUrl(trailerUrl);
+        setIsPlaying(true);
+        return;
+      }
+
+      setCurrentTrailerUrl(null);
+      setIsPlaying(false);
+      setTrailerMessage('Trailer not available yet for this upcoming release.');
+    } catch (error) {
+      console.error('Error loading trailer:', error);
+      setCurrentTrailerUrl(null);
+      setIsPlaying(false);
+      setTrailerMessage('We could not load the trailer right now.');
+    } finally {
+      setLoadingTrailerId(null);
+    }
   };
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-black flex items-center justify-center relative">
+      <div className="relative flex min-h-screen items-center justify-center bg-black">
         <button
-          onClick={() => navigateTo ? navigateTo('/') : window.history.back()}
-          className="absolute top-4 right-4 w-10 h-10 rounded-full bg-white/10 flex items-center justify-center hover:bg-white/20 transition-colors z-50"
+          onClick={() => (navigateTo ? navigateTo('/') : window.history.back())}
+          className="absolute right-4 top-4 z-50 flex h-10 w-10 items-center justify-center rounded-full bg-white/10 transition-colors hover:bg-white/20"
         >
-          <X className="w-5 h-5 text-white" />
+          <X className="h-5 w-5 text-white" />
         </button>
         <div className="text-center">
-          <Loader2 className="w-12 h-12 text-red-600 animate-spin mx-auto mb-4" />
-          <p className="text-white text-xl">Loading trailers...</p>
+          <Loader2 className="mx-auto mb-4 h-12 w-12 animate-spin text-red-600" />
+          <p className="text-xl text-white">Loading upcoming trailers...</p>
         </div>
       </div>
     );
   }
 
-  if (trailers.length === 0) {
+  if (upcomingItems.length === 0) {
     return (
-      <div className="min-h-screen bg-black flex items-center justify-center relative">
+      <div className="relative flex min-h-screen items-center justify-center bg-black">
         <button
-          onClick={() => navigateTo ? navigateTo('/') : window.history.back()}
-          className="absolute top-4 right-4 w-10 h-10 rounded-full bg-white/10 flex items-center justify-center hover:bg-white/20 transition-colors z-50"
+          onClick={() => (navigateTo ? navigateTo('/') : window.history.back())}
+          className="absolute right-4 top-4 z-50 flex h-10 w-10 items-center justify-center rounded-full bg-white/10 transition-colors hover:bg-white/20"
         >
-          <X className="w-5 h-5 text-white" />
+          <X className="h-5 w-5 text-white" />
         </button>
-        <p className="text-white text-xl">No trailers available</p>
+        <p className="text-xl text-white">No upcoming releases available right now.</p>
       </div>
     );
   }
 
   return (
     <div className="min-h-screen bg-black">
-      {/* Header - Hidden when playing */}
-      {!isPlaying && (
-        <div className="fixed top-0 left-0 right-0 z-50 bg-gradient-to-b from-black/80 to-transparent p-4">
-          <div className="flex items-center justify-between">
-            <div>
-              <h1 className="text-2xl font-bold text-white">Trailers</h1>
-              <p className="text-gray-400 text-sm">Swipe to discover</p>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Persistent Close Button - Always visible */}
       <button
-        onClick={() => navigateTo ? navigateTo('/') : window.history.back()}
-        className="fixed top-4 right-4 w-10 h-10 rounded-full bg-white/10 flex items-center justify-center hover:bg-white/20 transition-colors z-50"
+        onClick={() => (navigateTo ? navigateTo('/') : window.history.back())}
+        className="fixed right-4 top-4 z-50 flex h-10 w-10 items-center justify-center rounded-full bg-white/10 transition-colors hover:bg-white/20"
       >
-        <X className="w-5 h-5 text-white" />
+        <X className="h-5 w-5 text-white" />
       </button>
 
-      {/* Reel Container */}
+      <div className="pointer-events-none fixed left-4 top-4 z-40 rounded-full border border-white/10 bg-black/55 px-4 py-2 text-sm font-semibold text-white backdrop-blur-md">
+        Upcoming
+      </div>
+
       <div
         ref={containerRef}
-        className="h-screen overflow-y-scroll snap-y snap-mandatory scroll-smooth"
+        className="h-screen snap-y snap-mandatory overflow-y-scroll scroll-smooth"
         onScroll={handleScroll}
         style={{ scrollBehavior: 'smooth' }}
       >
-        {trailers.map((trailer, index) => (
-          <div
-            key={trailer.id}
-            className="h-screen w-full snap-start relative flex items-center justify-center bg-black"
-          >
-            {/* Video Player */}
-            <div className="relative w-full h-full">
-              {isPlaying && currentIndex === index ? (
-                <>
+        {upcomingItems.map((item, index) => {
+          const title = getContentTitle(item);
+          const contentType = getContentTypeLabel(item);
+          const ContentTypeIcon = contentTypeStyles[contentType].icon;
+
+          return (
+            <div
+              key={`${contentType}-${item.id}`}
+              className="relative flex h-screen w-full snap-start items-center justify-center bg-black"
+            >
+              <div className="relative h-full w-full">
+                {isPlaying && currentIndex === index && currentTrailerUrl ? (
                   <iframe
-                    src={`https://www.youtube-nocookie.com/embed/${trailer.videos[0].key}?autoplay=1&rel=0&modestbranding=1&controls=1`}
-                    className="w-full h-full object-cover"
+                    src={currentTrailerUrl}
+                    className="h-full w-full border-0 object-cover"
                     allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
                     allowFullScreen
-                    title={trailer.title}
+                    title={`${title} trailer`}
                   />
-                </>
-              ) : (
-                <>
-                  {/* Thumbnail */}
-                  <img
-                    src={getImageUrl(trailer.backdrop_path, 'original')}
-                    alt={trailer.title}
-                    className="w-full h-full object-cover"
-                  />
-                  
-                  {/* Gradient Overlay */}
-                  <div className="absolute inset-0 bg-gradient-to-t from-black via-black/50 to-transparent" />
-                  
-                  {/* Play Button */}
-                  <button
-                    onClick={() => handlePlayTrailer(trailer)}
-                    className="absolute inset-0 flex items-center justify-center"
-                  >
-                    <motion.div
-                      whileHover={{ scale: 1.1 }}
-                      whileTap={{ scale: 0.9 }}
-                      className="w-20 h-20 rounded-full bg-red-600/90 backdrop-blur-sm flex items-center justify-center shadow-2xl"
+                ) : (
+                  <>
+                    <img
+                      src={getImageUrl(item.backdrop_path || item.poster_path, 'original')}
+                      alt={title}
+                      className="h-full w-full object-cover"
+                    />
+                    <div className="absolute inset-0 bg-gradient-to-t from-black via-black/50 to-black/20" />
+                    <button
+                      onClick={() => void handlePlayTrailer(item, index)}
+                      disabled={loadingTrailerId === item.id}
+                      className="absolute inset-0 flex items-center justify-center"
                     >
-                      <Play className="w-8 h-8 text-white fill-white ml-1" />
-                    </motion.div>
-                  </button>
-                </>
-              )}
+                      <motion.div
+                        whileHover={{ scale: 1.08 }}
+                        whileTap={{ scale: 0.95 }}
+                        className="flex h-20 w-20 items-center justify-center rounded-full bg-red-600/90 shadow-2xl backdrop-blur-sm"
+                      >
+                        {loadingTrailerId === item.id ? (
+                          <Loader2 className="h-8 w-8 animate-spin text-white" />
+                        ) : (
+                          <Play className="ml-1 h-8 w-8 fill-white text-white" />
+                        )}
+                      </motion.div>
+                    </button>
+                  </>
+                )}
 
-              {/* Movie Info Overlay - Always visible, more transparent when playing */}
-              <div className={`absolute bottom-0 left-0 right-0 p-6 bg-gradient-to-t from-black via-black/80 to-transparent transition-opacity duration-300 ${isPlaying ? 'opacity-30 hover:opacity-100' : 'opacity-100'}`}>
-                <div className="max-w-3xl mx-auto">
-                  <h2 className="text-3xl font-bold text-white mb-2">{trailer.title}</h2>
-                  
-                  <div className="flex items-center gap-4 mb-3">
-                    <div className="flex items-center gap-1">
-                      <Star className="w-4 h-4 text-yellow-500 fill-yellow-500" />
-                      <span className="text-white text-sm">{trailer.vote_average.toFixed(1)}</span>
+                <div className={`absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black via-black/80 to-transparent p-6 transition-opacity duration-300 ${isPlaying ? 'opacity-35 hover:opacity-100' : 'opacity-100'}`}>
+                  <div className="mx-auto max-w-4xl">
+                    <div className="mb-3 flex flex-wrap items-center gap-3">
+                      <div className={`inline-flex items-center gap-2 rounded-full px-3 py-1.5 text-xs font-semibold shadow-lg backdrop-blur-md ${contentTypeStyles[contentType].className}`}>
+                        <ContentTypeIcon className="h-3.5 w-3.5" />
+                        <span>{contentType}</span>
+                      </div>
+                      <div className="inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/5 px-3 py-1.5 text-sm text-gray-200">
+                        <Calendar className="h-4 w-4" />
+                        <span>{getContentReleaseDate(item) || getContentYear(item)}</span>
+                      </div>
                     </div>
-                    <div className="flex items-center gap-1">
-                      <Calendar className="w-4 h-4 text-gray-400" />
-                      <span className="text-gray-400 text-sm">{trailer.release_date?.split('-')[0]}</span>
+
+                    <h2 className="mb-2 text-3xl font-black text-white sm:text-4xl">{title}</h2>
+
+                    <div className="mb-3 flex items-center gap-4">
+                      <div className="flex items-center gap-1 text-sm">
+                        <Star className="h-4 w-4 fill-yellow-500 text-yellow-500" />
+                        <span className="text-white">{item.vote_average.toFixed(1)}</span>
+                      </div>
+                      <span className="text-sm text-gray-400">{getContentYear(item)}</span>
                     </div>
+
+                    <p className="mb-4 max-w-3xl text-sm text-gray-300 sm:text-base">{item.overview}</p>
+
+                    {trailerMessage && currentIndex === index && (
+                      <p className="mb-4 rounded-2xl border border-white/10 bg-black/40 px-4 py-3 text-sm text-gray-200 backdrop-blur-md">
+                        {trailerMessage}
+                      </p>
+                    )}
+
+                    <motion.button
+                      whileHover={{ scale: 1.04 }}
+                      whileTap={{ scale: 0.96 }}
+                      onClick={() => handleWatchNow(item)}
+                      className="inline-flex items-center gap-2 rounded-full bg-white px-6 py-3 font-bold text-black transition-colors hover:bg-gray-100"
+                    >
+                      <Play className="h-5 w-5 fill-black" />
+                      Play Now
+                      <ArrowRight className="h-5 w-5" />
+                    </motion.button>
                   </div>
-
-                  <p className="text-gray-300 text-sm line-clamp-2 mb-4">{trailer.overview}</p>
-
-                  {/* Watch Now Button - Transparent by default, visible on hover */}
-                  <motion.button
-                    whileHover={{ scale: 1.05 }}
-                    whileTap={{ scale: 0.95 }}
-                    onClick={() => handleWatchNow(trailer)}
-                    className="flex items-center gap-2 px-6 py-3 bg-red-600/30 backdrop-blur-sm text-white font-bold rounded-full hover:bg-red-600 transition-all duration-300"
-                  >
-                    <Play className="w-5 h-5 fill-white" />
-                    Watch Now
-                    <ArrowRight className="w-5 h-5" />
-                  </motion.button>
                 </div>
               </div>
             </div>
-          </div>
+          );
+        })}
+      </div>
+
+      <div className="fixed right-4 top-1/2 z-50 flex -translate-y-1/2 flex-col gap-2">
+        {upcomingItems.map((_, index) => (
+          <div
+            key={index}
+            className={`rounded-full transition-all ${index === currentIndex ? 'h-8 w-2 bg-red-600' : 'h-2 w-2 bg-gray-600'}`}
+          />
         ))}
       </div>
 
-      {/* Scroll Indicator - Hidden when playing */}
-      {!isPlaying && (
-        <div className="fixed right-4 top-1/2 -translate-y-1/2 z-50 flex flex-col gap-2">
-          {trailers.map((_, index) => (
-            <div
-              key={index}
-              className={`w-2 h-2 rounded-full transition-all ${
-                index === currentIndex ? 'bg-red-600 w-2 h-8' : 'bg-gray-600'
-              }`}
-            />
-          ))}
-        </div>
-      )}
-
-      {/* Movie Details Modal */}
       <AnimatePresence>
         {selectedMovie && (
           <ModernMovieDetailsModal

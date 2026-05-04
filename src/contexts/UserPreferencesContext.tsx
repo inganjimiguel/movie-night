@@ -1,5 +1,5 @@
 import { createContext, useContext, useState, useEffect, ReactNode } from 'react';
-import { getContentStorageKey, type MovieData } from '../services/movieService';
+import { getContentStorageKey, normalizeStoredContentItem, type MovieData } from '../services/movieService';
 
 interface UserPreferencesContextType {
   favorites: MovieData[];
@@ -27,20 +27,28 @@ export function UserPreferencesProvider({ children }: { children: ReactNode }) {
 
   // Load data from localStorage on mount
   useEffect(() => {
-    try {
-      const savedFavorites = localStorage.getItem(STORAGE_KEYS.FAVORITES);
-      const savedWatchLater = localStorage.getItem(STORAGE_KEYS.WATCH_LATER);
-      
-      if (savedFavorites) {
-        setFavorites(JSON.parse(savedFavorites));
+    const loadPreferences = async () => {
+      try {
+        const savedFavorites = localStorage.getItem(STORAGE_KEYS.FAVORITES);
+        const savedWatchLater = localStorage.getItem(STORAGE_KEYS.WATCH_LATER);
+
+        if (savedFavorites) {
+          const parsedFavorites: MovieData[] = JSON.parse(savedFavorites);
+          const normalizedFavorites = await Promise.all(parsedFavorites.map(normalizeStoredContentItem));
+          setFavorites(normalizedFavorites);
+        }
+
+        if (savedWatchLater) {
+          const parsedWatchLater: MovieData[] = JSON.parse(savedWatchLater);
+          const normalizedWatchLater = await Promise.all(parsedWatchLater.map(normalizeStoredContentItem));
+          setWatchLater(normalizedWatchLater);
+        }
+      } catch (error) {
+        console.error('Error loading user preferences:', error);
       }
-      
-      if (savedWatchLater) {
-        setWatchLater(JSON.parse(savedWatchLater));
-      }
-    } catch (error) {
-      console.error('Error loading user preferences:', error);
-    }
+    };
+
+    void loadPreferences();
   }, []);
 
   // Save favorites to localStorage whenever they change

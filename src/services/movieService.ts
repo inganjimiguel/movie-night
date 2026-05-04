@@ -26,10 +26,12 @@ export interface MovieData {
 
 export interface TVShowData {
   id: number;
+  title: string;
   name: string;
   overview: string;
   poster_path: string;
   backdrop_path: string;
+  release_date: string;
   first_air_date: string;
   vote_average: number;
   genre_ids: number[];
@@ -38,12 +40,12 @@ export interface TVShowData {
 
 export interface AnimationData {
   id: number;
-  title?: string;
+  title: string;
   name?: string;
   overview: string;
   poster_path: string;
   backdrop_path: string;
-  release_date?: string;
+  release_date: string;
   first_air_date?: string;
   vote_average: number;
   genre_ids: number[];
@@ -101,8 +103,8 @@ export const getContentYear = (item: Pick<MovieData, 'release_date' | 'first_air
 };
 
 export const getContentTypeLabel = (item: Pick<MovieData, 'media_type' | 'genre_ids' | 'name' | 'title'>): 'Movie' | 'TV Show' | 'Animation' => {
+  if (isAnimationContent(item)) return 'Animation';
   if (isTvLikeContent(item)) return 'TV Show';
-  if (item.media_type === 'animation') return 'Animation';
   return 'Movie';
 };
 
@@ -118,12 +120,12 @@ export const getVideoUrl = (
 ): string => {
   if (mediaType === 'tv') {
     if (season && episode) {
-      return `https://vidsrc.to/embed/tv/${id}/${season}/${episode}`;
+      return `https://vsembed.ru/embed/tv/${id}/${season}-${episode}`;
     }
-    return `https://vidsrc.to/embed/tv/${id}`;
+    return `https://vsembed.ru/embed/tv/${id}`;
   }
-  // Treat animated movies like movies for VidSrc embeds.
-  return `https://vidsrc.to/embed/movie/${id}`;
+  // VidSrc currently wraps embeds with an extra iframe; using the resolved player directly is more reliable.
+  return `https://vsembed.ru/embed/movie/${id}/`;
 };
 
 export const getVidsrcUrl = (item: Pick<MovieData, 'id' | 'media_type' | 'genre_ids' | 'name' | 'title'>, season = 1, episode = 1): string => {
@@ -257,6 +259,126 @@ export const getTrendingMovies = async (): Promise<MovieData[]> => {
   } catch (err) {
     console.error('TMDB Fetch Error:', err);
     return getFallbackMovies();
+  }
+};
+
+export const getNewReleaseMovies = async (): Promise<MovieData[]> => {
+  try {
+    const today = new Date();
+    const recentWindowStart = new Date(today);
+    recentWindowStart.setDate(recentWindowStart.getDate() - 120);
+
+    const formatDate = (date: Date) => date.toISOString().split('T')[0];
+    const query = new URLSearchParams({
+      include_adult: 'false',
+      include_video: 'false',
+      language: 'en-US',
+      page: '1',
+      region: 'US',
+      sort_by: 'primary_release_date.desc',
+      'primary_release_date.lte': formatDate(today),
+      'primary_release_date.gte': formatDate(recentWindowStart),
+      'vote_count.gte': '25',
+    });
+
+    const res = await fetch(`${TMDB_BASE_URL}/discover/movie?${query.toString()}`, {
+      headers: getHeaders()
+    });
+    const data = await res.json();
+    return data.results?.map((movie: any) => ({
+      ...movie,
+      media_type: 'movie'
+    })) || [];
+  } catch (err) {
+    console.error('TMDB New Releases Fetch Error:', err);
+    return [];
+  }
+};
+
+export const getUpcomingContent = async (): Promise<ContentData[]> => {
+  try {
+    const today = new Date();
+    const futureWindowEnd = new Date(today);
+    futureWindowEnd.setDate(futureWindowEnd.getDate() + 365);
+
+    const formatDate = (date: Date) => date.toISOString().split('T')[0];
+    const commonParams = {
+      include_adult: 'false',
+      language: 'en-US',
+      page: '1',
+      sort_by: 'popularity.desc',
+    };
+
+    const [upcomingMoviesRes, upcomingTvRes, upcomingAnimationMoviesRes, upcomingAnimationTvRes] = await Promise.all([
+      fetch(`${TMDB_BASE_URL}/movie/upcoming?language=en-US&page=1&region=US`, {
+        headers: getHeaders()
+      }),
+      fetch(`${TMDB_BASE_URL}/discover/tv?${new URLSearchParams({
+        ...commonParams,
+        'first_air_date.gte': formatDate(today),
+        'first_air_date.lte': formatDate(futureWindowEnd),
+      }).toString()}`, {
+        headers: getHeaders()
+      }),
+      fetch(`${TMDB_BASE_URL}/discover/movie?${new URLSearchParams({
+        ...commonParams,
+        with_genres: '16',
+        'primary_release_date.gte': formatDate(today),
+        'primary_release_date.lte': formatDate(futureWindowEnd),
+      }).toString()}`, {
+        headers: getHeaders()
+      }),
+      fetch(`${TMDB_BASE_URL}/discover/tv?${new URLSearchParams({
+        ...commonParams,
+        with_genres: '16',
+        'first_air_date.gte': formatDate(today),
+        'first_air_date.lte': formatDate(futureWindowEnd),
+      }).toString()}`, {
+        headers: getHeaders()
+      }),
+    ]);
+
+    const [upcomingMoviesData, upcomingTvData, upcomingAnimationMoviesData, upcomingAnimationTvData] = await Promise.all([
+      upcomingMoviesRes.json(),
+      upcomingTvRes.json(),
+      upcomingAnimationMoviesRes.json(),
+      upcomingAnimationTvRes.json(),
+    ]);
+
+    const combined: ContentData[] = [
+      ...(upcomingMoviesData.results?.map((movie: any) => ({
+        ...movie,
+        media_type: 'movie',
+      })) || []),
+      ...(upcomingTvData.results?.map((show: any) => ({
+        ...show,
+        title: show.name,
+        release_date: show.first_air_date,
+        media_type: 'tv',
+      })) || []),
+      ...(upcomingAnimationMoviesData.results?.map((movie: any) => ({
+        ...movie,
+        media_type: 'movie',
+      })) || []),
+      ...(upcomingAnimationTvData.results?.map((show: any) => ({
+        ...show,
+        title: show.name,
+        release_date: show.first_air_date,
+        media_type: 'tv',
+      })) || []),
+    ];
+
+    const deduped = combined.filter((item, index, items) => {
+      const key = `${getContentTypeLabel(item)}:${item.id}`;
+      return items.findIndex((candidate) => `${getContentTypeLabel(candidate)}:${candidate.id}` === key) === index;
+    });
+
+    return deduped
+      .filter((item) => Boolean(item.backdrop_path || item.poster_path))
+      .sort((a, b) => new Date(getContentReleaseDate(a)).getTime() - new Date(getContentReleaseDate(b)).getTime());
+  } catch (err) {
+    console.error('TMDB Upcoming Content Fetch Error:', err);
+    return [];
   }
 };
 
@@ -544,6 +666,69 @@ export const getTrailerUrl = async (
 
   trailerUrlCache.set(cacheKey, trailerPromise);
   return trailerPromise;
+};
+
+export const normalizeStoredContentItem = async (item: MovieData): Promise<MovieData> => {
+  const baseItem: MovieData = {
+    ...item,
+    title: item.title || item.name || 'Untitled',
+    overview: item.overview || '',
+    poster_path: item.poster_path || '',
+    backdrop_path: item.backdrop_path || '',
+    release_date: item.release_date || item.first_air_date || '',
+    genre_ids: Array.isArray(item.genre_ids) ? item.genre_ids : [],
+  };
+
+  if (item.media_type === 'movie' || item.media_type === 'tv') {
+    return baseItem;
+  }
+
+  try {
+    const [movieRes, tvRes] = await Promise.all([
+      fetch(`${TMDB_BASE_URL}/movie/${item.id}`, { headers: getHeaders() }),
+      fetch(`${TMDB_BASE_URL}/tv/${item.id}`, { headers: getHeaders() }),
+    ]);
+
+    const isMovie = movieRes.ok;
+    const isTv = tvRes.ok;
+
+    if (isTv && !isMovie) {
+      const data = await tvRes.json();
+      return {
+        ...baseItem,
+        title: data.name || baseItem.title,
+        name: data.name || baseItem.name || baseItem.title,
+        release_date: data.first_air_date || baseItem.release_date,
+        first_air_date: data.first_air_date || baseItem.first_air_date || baseItem.release_date,
+        poster_path: data.poster_path || baseItem.poster_path,
+        backdrop_path: data.backdrop_path || baseItem.backdrop_path,
+        overview: data.overview || baseItem.overview,
+        genre_ids: data.genres?.map((genre: { id: number }) => genre.id) || baseItem.genre_ids,
+        media_type: 'tv',
+      };
+    }
+
+    if (isMovie) {
+      const data = await movieRes.json();
+      return {
+        ...baseItem,
+        title: data.title || baseItem.title,
+        release_date: data.release_date || baseItem.release_date,
+        poster_path: data.poster_path || baseItem.poster_path,
+        backdrop_path: data.backdrop_path || baseItem.backdrop_path,
+        overview: data.overview || baseItem.overview,
+        genre_ids: data.genres?.map((genre: { id: number }) => genre.id) || baseItem.genre_ids,
+        media_type: 'movie',
+      };
+    }
+  } catch (error) {
+    console.error('Error normalizing stored content item:', error);
+  }
+
+  return {
+    ...baseItem,
+    media_type: baseItem.media_type || 'movie',
+  };
 };
 
 export const getTrailers = async (): Promise<TrailerData[]> => {

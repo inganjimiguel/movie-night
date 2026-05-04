@@ -73,7 +73,7 @@ export default function Footer() {
           </div>
         </div>
 
-        <div className="mt-10 border-t border-white/10 pt-6 text-sm text-gray-500">
+        <div className="mt-10 border-t border-white/10 pt-6 text-center text-sm text-gray-500">
           <p>© {new Date().getFullYear()} MovieNight.</p>
         </div>
       </div>
