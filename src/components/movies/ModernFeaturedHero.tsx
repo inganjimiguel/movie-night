@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { motion } from 'motion/react';
 import { Calendar, Clock, Play, Star } from 'lucide-react';
 import Badge from '../common/Badge';
@@ -26,6 +26,9 @@ export default function ModernFeaturedHero({
 }: ModernFeaturedHeroProps) {
   const [trailerUrl, setTrailerUrl] = useState<string | null>(null);
   const [isTrailerLoading, setIsTrailerLoading] = useState(true);
+  const [isTrailerVisible, setIsTrailerVisible] = useState(true);
+  const [shouldPlayTrailer, setShouldPlayTrailer] = useState(true);
+  const heroRef = useRef<HTMLElement | null>(null);
 
   useEffect(() => {
     let cancelled = false;
@@ -56,12 +59,40 @@ export default function ModernFeaturedHero({
     };
   }, [movie]);
 
+  useEffect(() => {
+    setIsTrailerVisible(true);
+    setShouldPlayTrailer(true);
+  }, [movie.id]);
+
+  useEffect(() => {
+    const element = heroRef.current;
+    if (!element) return;
+
+    const observer = new IntersectionObserver(
+      ([entry]) => {
+        const isVisible = entry.isIntersecting && entry.intersectionRatio >= 0.45;
+        setIsTrailerVisible(isVisible);
+
+        if (!isVisible) {
+          setShouldPlayTrailer(false);
+        }
+      },
+      {
+        threshold: [0, 0.45, 0.75],
+      }
+    );
+
+    observer.observe(element);
+    return () => observer.disconnect();
+  }, []);
+
   const title = getContentTitle(movie);
   const year = getContentYear(movie);
   const playLabel = isTvLikeContent(movie) ? 'Play Series' : 'Play Now';
+  const showActiveTrailer = Boolean(trailerUrl) && shouldPlayTrailer && isTrailerVisible;
 
   return (
-    <section className="px-4 sm:px-6 lg:px-8">
+    <section ref={heroRef} className="px-4 sm:px-6 lg:px-8">
       <motion.div
         initial={{ opacity: 0, y: 24 }}
         animate={{ opacity: 1, y: 0 }}
@@ -125,7 +156,7 @@ export default function ModernFeaturedHero({
 
           <div className="relative min-h-[280px] border-t border-white/10 lg:min-h-full lg:border-l lg:border-t-0">
             <div className="absolute inset-0 bg-gradient-to-br from-red-950/20 via-black/20 to-black/60" />
-            {trailerUrl ? (
+            {showActiveTrailer ? (
               <iframe
                 src={trailerUrl}
                 title={`${title} featured trailer`}
@@ -134,16 +165,37 @@ export default function ModernFeaturedHero({
                 referrerPolicy="strict-origin-when-cross-origin"
               />
             ) : (
-              <img
-                src={getImageUrl(movie.backdrop_path || movie.poster_path, 'original')}
-                alt={title}
-                className="absolute inset-0 h-full w-full object-cover"
-              />
+              <div className="absolute inset-0">
+                <img
+                  src={getImageUrl(movie.backdrop_path || movie.poster_path, 'original')}
+                  alt={title}
+                  className="absolute inset-0 h-full w-full object-cover"
+                />
+                {trailerUrl && (
+                  <div className="absolute inset-0 flex items-center justify-center p-6">
+                    <motion.button
+                      whileHover={{ scale: 1.03 }}
+                      whileTap={{ scale: 0.97 }}
+                      onClick={() => setShouldPlayTrailer(true)}
+                      className="inline-flex items-center gap-3 rounded-full border border-white/15 bg-black/65 px-5 py-3 text-sm font-semibold text-white shadow-xl backdrop-blur-md hover:bg-black/75"
+                    >
+                      <Play className="h-4 w-4 fill-white" />
+                      <span>{isTrailerVisible ? 'Play Trailer' : 'Resume Trailer'}</span>
+                    </motion.button>
+                  </div>
+                )}
+              </div>
             )}
 
             <div className="absolute inset-0 bg-gradient-to-t from-black via-black/15 to-black/25 lg:bg-gradient-to-l lg:from-transparent lg:via-transparent lg:to-black/70" />
             <div className="absolute bottom-4 left-4 right-4 rounded-2xl border border-white/10 bg-black/45 px-4 py-3 text-sm text-gray-200 backdrop-blur-md">
-              {isTrailerLoading ? 'Loading trailer preview...' : trailerUrl ? 'Featured trailer is playing.' : 'Trailer preview not available for this title yet.'}
+              {isTrailerLoading
+                ? 'Loading trailer preview...'
+                : showActiveTrailer
+                  ? 'Featured trailer is playing with YouTube controls.'
+                  : trailerUrl
+                    ? 'Trailer paused after leaving the screen. Press the button to play it again.'
+                    : 'Trailer preview not available for this title yet.'}
             </div>
           </div>
         </div>
