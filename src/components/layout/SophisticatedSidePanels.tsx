@@ -13,8 +13,9 @@ import {
   Clapperboard
 } from 'lucide-react';
 import { useUserPreferences } from '../../contexts/UserPreferencesContext';
-import type { MovieData } from '../../services/movieService';
-import { getContentTitle, getContentTypeLabel, getContentYear, getVidsrcUrl } from '../../services/movieService';
+import VideoSourceSelector from '../video/VideoSourceSelector';
+import type { MovieData, VideoSource } from '../../services/movieService';
+import { DEFAULT_VIDEO_SOURCE, getContentTitle, getContentTypeLabel, getContentYear, getVidsrcUrl } from '../../services/movieService';
 
 interface SophisticatedSidePanelsProps {
   navigateTo?: (path: string) => void;
@@ -25,6 +26,7 @@ export default function SophisticatedSidePanels({ navigateTo }: SophisticatedSid
   const [currentIndex, setCurrentIndex] = useState(0);
   const [isPlaying, setIsPlaying] = useState(false);
   const [playerUrl, setPlayerUrl] = useState('');
+  const [currentSource, setCurrentSource] = useState<VideoSource>(DEFAULT_VIDEO_SOURCE);
   const [hoveredButton, setHoveredButton] = useState<'favorites' | 'watchlater' | 'trailers' | null>(null);
   const { favorites, watchLater } = useUserPreferences();
 
@@ -37,9 +39,9 @@ export default function SophisticatedSidePanels({ navigateTo }: SophisticatedSid
   const currentItems = activePanel === 'favorites' ? favorites : watchLater;
   const currentItem = currentItems[currentIndex];
 
-  const handlePlay = async (movie: MovieData) => {
+  const handlePlay = async (movie: MovieData, source: VideoSource = currentSource) => {
     try {
-      const url = getVidsrcUrl(movie);
+      const url = getVidsrcUrl(movie, 1, 1, source);
       setPlayerUrl(url);
       setIsPlaying(true);
     } catch (error) {
@@ -297,6 +299,15 @@ export default function SophisticatedSidePanels({ navigateTo }: SophisticatedSid
                         </div>
 
                         <div className="space-y-3">
+                          <VideoSourceSelector
+                            currentSource={currentSource}
+                            onSourceChange={(source) => {
+                              setCurrentSource(source);
+                              if (currentItem && isPlaying) {
+                                void handlePlay(currentItem, source);
+                              }
+                            }}
+                          />
                           <h3 className="text-xl font-bold text-white">{getContentTitle(currentItem)}</h3>
                           <p className="text-gray-400 line-clamp-3">{currentItem.overview}</p>
                           

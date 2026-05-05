@@ -1,7 +1,6 @@
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
-import { X, Heart, CreditCard, Smartphone, Mail, Shield, Star } from 'lucide-react';
-import FlutterwavePayment from './FlutterwavePayment';
+import { ExternalLink, Heart, LoaderCircle, ShieldCheck, Sparkles, X, Zap } from 'lucide-react';
 
 interface DonationModalProps {
   isOpen: boolean;
@@ -9,47 +8,92 @@ interface DonationModalProps {
   movieTitle?: string;
 }
 
+const DONORBOX_SCRIPT_ID = 'donorbox-widget-script';
+const DONORBOX_SCRIPT_SRC = 'https://donorbox.org/widgets.js';
+const DONORBOX_CAMPAIGN = 'donate-932583';
+const DONORBOX_HOSTED_URL = `https://donorbox.org/${DONORBOX_CAMPAIGN}`;
 
-const suggestedAmounts = [5, 10, 15, 25, 50, 100];
-
-const paymentMethods = [
-  { id: 'flutterwave', name: 'Pay', icon: CreditCard, description: 'Cards, Mobile Money, Bank Transfer' },
+const supportHighlights = [
+  {
+    icon: Zap,
+    title: 'Faster updates',
+    description: 'New improvements, smoother browsing, and less rough edge cleanup debt.',
+  },
+  {
+    icon: ShieldCheck,
+    title: 'Keeps the lights on',
+    description: 'Hosting, maintenance, and the day-to-day work behind the scenes.',
+  },
+  {
+    icon: Sparkles,
+    title: 'Helps us keep polishing',
+    description: 'More time for the details that make the experience feel premium.',
+  },
 ];
 
 export default function DonationModal({ isOpen, onClose, movieTitle }: DonationModalProps) {
-  const [customAmount, setCustomAmount] = useState<number>(15);
-  const [selectedPayment, setSelectedPayment] = useState<string>('flutterwave');
-  const [isProcessing, setIsProcessing] = useState(false);
-  const [showSuccess, setShowSuccess] = useState(false);
+  const widgetContainerRef = useRef<HTMLDivElement | null>(null);
+  const [isWidgetLoading, setIsWidgetLoading] = useState(true);
 
-  const handleDonate = async () => {
-    // Payment is now handled by RealPaymentForm
-  };
+  useEffect(() => {
+    if (!isOpen || typeof document === 'undefined') {
+      return;
+    }
 
-  const handlePaymentSuccess = (transactionId: string) => {
-    setIsProcessing(false);
-    setShowSuccess(true);
-    
-    // Store transaction
-    console.log('Payment successful:', transactionId);
-    
-    // Close modal after success
-    setTimeout(() => {
-      setShowSuccess(false);
-      onClose();
-    }, 3000);
-  };
+    setIsWidgetLoading(true);
 
-  const handlePaymentError = (error: string) => {
-    setIsProcessing(false);
-    alert('Payment failed: ' + error);
-  };
+    const existingScript = document.getElementById(DONORBOX_SCRIPT_ID);
+    if (!existingScript) {
+      const script = document.createElement('script');
+      script.id = DONORBOX_SCRIPT_ID;
+      script.type = 'module';
+      script.async = true;
+      script.src = DONORBOX_SCRIPT_SRC;
+      document.body.appendChild(script);
+    }
 
-  const handlePaymentProcessing = (processing: boolean) => {
-    setIsProcessing(processing);
-  };
+    const previousOverflow = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
 
-  const selectedPaymentData = paymentMethods.find(method => method.id === selectedPayment);
+    const observer = new MutationObserver(() => {
+      const host = widgetContainerRef.current?.querySelector('dbox-widget');
+      if (!host) {
+        return;
+      }
+
+      const hasRenderedContent =
+        host.childNodes.length > 0 ||
+        Boolean((host as HTMLElement).shadowRoot?.childNodes.length);
+
+      if (hasRenderedContent) {
+        setIsWidgetLoading(false);
+        observer.disconnect();
+      }
+    });
+
+    if (widgetContainerRef.current) {
+      observer.observe(widgetContainerRef.current, { childList: true, subtree: true });
+    }
+
+    const fallbackTimer = window.setTimeout(() => {
+      setIsWidgetLoading(false);
+    }, 6000);
+
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') {
+        onClose();
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+
+    return () => {
+      document.body.style.overflow = previousOverflow;
+      window.removeEventListener('keydown', handleKeyDown);
+      observer.disconnect();
+      window.clearTimeout(fallbackTimer);
+    };
+  }, [isOpen, onClose]);
 
   return (
     <AnimatePresence>
@@ -58,159 +102,117 @@ export default function DonationModal({ isOpen, onClose, movieTitle }: DonationM
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
           exit={{ opacity: 0 }}
-          className="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 flex items-center justify-center p-4"
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/78 p-3 backdrop-blur-md sm:p-5"
           onClick={onClose}
         >
           <motion.div
-            initial={{ scale: 0.9, opacity: 0 }}
-            animate={{ scale: 1, opacity: 1 }}
-            exit={{ scale: 0.9, opacity: 0 }}
-            className="bg-gray-900 rounded-2xl max-w-4xl w-full max-h-[90vh] overflow-y-auto"
-            onClick={(e) => e.stopPropagation()}
+            initial={{ opacity: 0, y: 24, scale: 0.98 }}
+            animate={{ opacity: 1, y: 0, scale: 1 }}
+            exit={{ opacity: 0, y: 18, scale: 0.98 }}
+            transition={{ duration: 0.24, ease: 'easeOut' }}
+            className="relative max-h-[92vh] w-full max-w-6xl overflow-hidden rounded-[28px] border border-white/10 bg-neutral-950 shadow-[0_28px_90px_rgba(0,0,0,0.55)]"
+            onClick={(event) => event.stopPropagation()}
           >
-            {/* Header */}
-            <div className="p-6 border-b border-gray-800">
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-3">
-                  <div className="w-12 h-12 bg-red-600 rounded-full flex items-center justify-center">
-                    <Heart className="w-6 h-6 text-white" />
-                  </div>
-                  <div>
-                    <h2 className="text-2xl font-bold text-white">Support Movie Night</h2>
-                    <p className="text-gray-400">
-                      {movieTitle ? `Keep "${movieTitle}" and more movies free for everyone` : 'Help us keep movies free for everyone'}
-                    </p>
-                  </div>
+            <div className="absolute inset-0 bg-[radial-gradient(circle_at_top_left,rgba(220,38,38,0.18),transparent_34%),radial-gradient(circle_at_bottom_right,rgba(250,204,21,0.08),transparent_24%)]" />
+
+            <div className="relative flex items-center justify-between border-b border-white/10 px-5 py-4 sm:px-7 sm:py-5">
+              <div className="flex min-w-0 items-center gap-3">
+                <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl border border-white/10 bg-gradient-to-br from-red-500 to-red-700 shadow-lg shadow-red-950/40">
+                  <Heart className="h-6 w-6 fill-white text-white" />
                 </div>
-                <button
-                  onClick={onClose}
-                  className="p-2 hover:bg-gray-800 rounded-lg transition-colors"
-                >
-                  <X className="w-5 h-5 text-gray-400" />
-                </button>
+                <div className="min-w-0">
+                  <p className="text-[11px] font-semibold uppercase tracking-[0.28em] text-red-200/72">
+                    Support Movie Night
+                  </p>
+                  <h2 className="truncate text-xl font-black text-white sm:text-2xl">Support us</h2>
+                </div>
               </div>
+
+              <button
+                onClick={onClose}
+                className="rounded-xl border border-white/10 bg-white/5 p-2 text-gray-300 transition-colors hover:bg-white/10 hover:text-white"
+                aria-label="Close support popup"
+              >
+                <X className="h-5 w-5" />
+              </button>
             </div>
 
-            {/* Success Message */}
-            <AnimatePresence>
-              {showSuccess && (
-                <motion.div
-                  initial={{ opacity: 0, y: 20 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  exit={{ opacity: 0, y: -20 }}
-                  className="absolute inset-0 bg-gray-900 rounded-2xl flex items-center justify-center z-10"
-                >
-                  <div className="text-center">
-                    <div className="w-20 h-20 bg-green-600 rounded-full flex items-center justify-center mx-auto mb-4">
-                      <Star className="w-10 h-10 text-white" />
-                    </div>
-                    <h3 className="text-2xl font-bold text-white mb-2">Thank You!</h3>
-                    <p className="text-gray-400">Your donation helps keep Movie Night free</p>
-                  </div>
-                </motion.div>
-              )}
-            </AnimatePresence>
+            <div className="relative grid max-h-[calc(92vh-73px)] gap-0 overflow-y-auto lg:grid-cols-[1.05fr_1.35fr]">
+              <div className="border-b border-white/10 px-5 py-5 sm:px-7 sm:py-6 lg:border-b-0 lg:border-r">
+                <div className="rounded-[24px] border border-red-400/15 bg-[linear-gradient(160deg,rgba(127,29,29,0.34),rgba(10,10,10,0.92))] p-5 sm:p-6">
+                  <p className="max-w-xl text-balance text-2xl font-black leading-tight text-white sm:text-3xl">
+                    Help keep the site fast, alive, and getting better.
+                  </p>
+                  <p className="mt-3 text-sm leading-6 text-gray-300 sm:text-base">
+                    {movieTitle
+                      ? `If "${movieTitle}" made your night better, this is a simple way to help us keep building for the next one.`
+                      : 'If the app has been useful, your support gives us room to keep refining the experience instead of just patching it.'}
+                  </p>
 
-            <div className="p-6">
-              {/* Custom Amount */}
-              <div className="mb-8">
-                <h3 className="text-xl font-semibold text-white mb-4">Choose Your Donation Amount</h3>
-                
-                {/* Suggested Amounts */}
-                <div className="grid grid-cols-3 md:grid-cols-6 gap-3 mb-6">
-                  {suggestedAmounts.map((amount) => (
-                    <motion.button
-                      key={amount}
-                      whileHover={{ scale: 1.05 }}
-                      whileTap={{ scale: 0.95 }}
-                      onClick={() => setCustomAmount(amount)}
-                      className={`px-4 py-3 rounded-lg font-bold transition-all ${
-                        customAmount === amount
-                          ? 'bg-red-600 text-white border-red-600'
-                          : 'bg-gray-800 text-gray-300 border-gray-700 hover:bg-gray-700'
-                      } border-2`}
+                  <div className="mt-5 flex flex-wrap gap-2">
+                    <span className="rounded-full border border-white/10 bg-white/5 px-3 py-1 text-xs font-semibold text-white/90">
+                      Secure checkout
+                    </span>
+                    <span className="rounded-full border border-white/10 bg-white/5 px-3 py-1 text-xs font-semibold text-white/90">
+                      Powered by Donorbox
+                    </span>
+                    <span className="rounded-full border border-white/10 bg-white/5 px-3 py-1 text-xs font-semibold text-white/90">
+                      One-time or recurring
+                    </span>
+                  </div>
+                </div>
+
+                <div className="mt-5 space-y-3">
+                  {supportHighlights.map(({ icon: Icon, title, description }) => (
+                    <motion.div
+                      key={title}
+                      initial={{ opacity: 0, x: -10 }}
+                      animate={{ opacity: 1, x: 0 }}
+                      transition={{ duration: 0.2 }}
+                      className="rounded-2xl border border-white/8 bg-white/[0.03] p-4 transition-colors hover:bg-white/[0.05]"
                     >
-                      ${amount}
-                    </motion.button>
+                      <div className="flex items-start gap-3">
+                        <div className="mt-0.5 flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-red-500/12 text-red-300">
+                          <Icon className="h-5 w-5" />
+                        </div>
+                        <div>
+                          <h3 className="text-sm font-bold text-white sm:text-base">{title}</h3>
+                          <p className="mt-1 text-sm leading-6 text-gray-400">{description}</p>
+                        </div>
+                      </div>
+                    </motion.div>
                   ))}
                 </div>
-                
-                {/* Custom Amount Input */}
-                <div className="bg-gray-800 rounded-xl p-4">
-                  <label className="block text-sm font-medium text-gray-300 mb-2">
-                    Custom Amount
-                  </label>
-                  <div className="flex items-center gap-3">
-                    <span className="text-2xl text-gray-400">$</span>
-                    <input
-                      type="number"
-                      value={customAmount}
-                      onChange={(e) => setCustomAmount(parseInt(e.target.value) || 0)}
-                      placeholder="Enter any amount"
-                      className="flex-1 px-4 py-3 bg-gray-900 border border-gray-700 rounded-lg text-white text-2xl font-bold placeholder-gray-500 focus:outline-none focus:border-red-500 transition-colors"
-                                            step="1"
-                    />
-                  </div>
-                                  </div>
+
+                <a
+                  href={DONORBOX_HOSTED_URL}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="mt-5 inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/5 px-4 py-2 text-sm font-semibold text-white transition-colors hover:bg-white/10"
+                >
+                  Open on Donorbox
+                  <ExternalLink className="h-4 w-4" />
+                </a>
               </div>
 
-              {/* Payment Methods */}
-              <div className="mb-8">
-                <h3 className="text-xl font-semibold text-white mb-4">Payment Method</h3>
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-                  {paymentMethods.map((method) => {
-                    const Icon = method.icon;
-                    return (
-                      <motion.div
-                        key={method.id}
-                        whileHover={{ scale: 1.02 }}
-                        whileTap={{ scale: 0.98 }}
-                        onClick={() => setSelectedPayment(method.id)}
-                        className={`p-4 rounded-xl border-2 cursor-pointer transition-all ${
-                          selectedPayment === method.id
-                            ? 'border-red-600 bg-red-600/10'
-                            : 'border-gray-700 hover:border-gray-600'
-                        }`}
-                      >
-                        <div className="text-center">
-                          <Icon className="w-8 h-8 text-red-500 mx-auto mb-2" />
-                          <h4 className="font-semibold text-white mb-1">{method.name}</h4>
-                          <p className="text-xs text-gray-400">{method.description}</p>
-                        </div>
-                      </motion.div>
-                    );
-                  })}
-                </div>
-              </div>
-
-              {/* Summary */}
-              <div className="bg-gray-800 rounded-xl p-6 mb-6">
-                <h3 className="text-lg font-semibold text-white mb-4">Donation Summary</h3>
-                <div className="space-y-2">
-                  <div className="flex justify-between text-gray-300">
-                    <span>Donation Amount:</span>
-                    <span className="text-white font-semibold">${customAmount}</span>
-                  </div>
-                  <div className="flex justify-between text-gray-300">
-                    <span>Payment Method:</span>
-                    <span className="text-white font-semibold">{selectedPaymentData?.name}</span>
-                  </div>
-                  <div className="border-t border-gray-700 pt-2 mt-2">
-                    <div className="flex justify-between text-white font-bold text-lg">
-                      <span>Total Amount:</span>
-                      <span className="text-red-500">${customAmount}</span>
+              <div ref={widgetContainerRef} className="px-3 py-3 sm:px-5 sm:py-5">
+                <div className="rounded-[24px] border border-white/10 bg-white p-2 shadow-[0_20px_50px_rgba(0,0,0,0.18)] sm:p-4">
+                  {isWidgetLoading && (
+                    <div className="flex min-h-[420px] flex-col items-center justify-center rounded-[18px] border border-dashed border-neutral-300 bg-neutral-50 text-center">
+                      <LoaderCircle className="mb-4 h-8 w-8 animate-spin text-red-600" />
+                      <p className="text-sm font-semibold text-neutral-900">Loading secure donation form...</p>
+                      <p className="mt-2 max-w-xs text-sm text-neutral-500">
+                        Donorbox is waking up. This usually takes just a moment.
+                      </p>
                     </div>
-                  </div>
+                  )}
+                  <dbox-widget
+                    campaign={DONORBOX_CAMPAIGN}
+                    type="donation_form"
+                    enable-auto-scroll="true"
+                  />
                 </div>
               </div>
-
-              {/* Payment Form */}
-              <FlutterwavePayment
-                amount={customAmount}
-                onSuccess={handlePaymentSuccess}
-                onError={handlePaymentError}
-                onProcessing={handlePaymentProcessing}
-              />
             </div>
           </motion.div>
         </motion.div>

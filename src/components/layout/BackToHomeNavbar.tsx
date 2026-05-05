@@ -15,7 +15,7 @@ export default function BackToHomeNavbar({ isVisible, onBackToHome, label = 'Bac
           initial={{ opacity: 0, y: -20 }}
           animate={{ opacity: 1, y: 0 }}
           exit={{ opacity: 0, y: -20 }}
-          className="fixed top-0 left-0 right-0 z-[160] bg-black/80 backdrop-blur-md border-b border-white/10"
+          className="sticky top-0 z-[160] bg-black/80 backdrop-blur-md border-b border-white/10"
         >
           <div className="px-4 sm:px-6 lg:px-8 py-4">
             <div className="flex items-center justify-center">

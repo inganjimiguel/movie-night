@@ -1,5 +1,6 @@
 import { useState, useEffect, useMemo } from 'react';
 import { Search } from 'lucide-react';
+import { useLocation, useNavigate } from 'react-router-dom';
 import ModernFeaturedHero from '../../components/movies/ModernFeaturedHero';
 import ModernMovieCarousel from '../../components/movies/ModernMovieCarousel';
 import ModernMovieDetailsModal from '../../components/movies/ModernMovieDetailsModal';
@@ -13,10 +14,8 @@ import useMovieBrowser from '../../hooks/useMovieBrowser';
 import {
   getContentReleaseDate,
   getContentStorageKey,
+  getBrowseContentCatalog,
   getNewReleaseMovies,
-  getTrendingAnimations,
-  getTrendingMovies,
-  getTrendingTVShows,
   isAnimationContent,
   searchAllContent,
   type ContentData
@@ -27,8 +26,16 @@ interface HomePageProps {
   navigateTo?: (path: string) => void;
 }
 
+interface HomeNavigationState {
+  autoplay?: boolean;
+  selectedMovie?: ContentData;
+}
+
 export default function HomePage({ navigateTo }: HomePageProps = {}) {
+  const location = useLocation();
+  const navigate = useNavigate();
   const {
+    currentSource,
     featured,
     isPlaying,
     isPlayerLoading,
@@ -44,16 +51,19 @@ export default function HomePage({ navigateTo }: HomePageProps = {}) {
     playMovie,
     resetToBrowse,
     handlePlayerReady,
+    setCurrentSource,
     setSearchQuery,
     setSearchResults,
     setIsSearching,
   } = useMovieBrowser();
+  const navigationState = location.state as HomeNavigationState | null;
 
   const [selectedGenre, setSelectedGenre] = useState<number>(0);
   const [tvShows, setTVShows] = useState<ContentData[]>([]);
   const [animations, setAnimations] = useState<ContentData[]>([]);
   const [newReleases, setNewReleases] = useState<ContentData[]>([]);
   const [activeTab, setActiveTab] = useState<'movies' | 'tv' | 'animations'>('movies');
+  const showBackToHomeNavbar = !!searchQuery || selectedGenre > 0;
 
   const allBrowseContent = useMemo(() => {
     const combined = [...movies, ...tvShows, ...animations];
@@ -114,22 +124,12 @@ export default function HomePage({ navigateTo }: HomePageProps = {}) {
       .slice(0, 10);
   }, [currentFeaturedKey, featuredRemovedContent, newReleases]);
 
-  const filterResultsByActiveTab = (results: ContentData[]) => {
-    if (activeTab === 'movies') {
-      return results.filter((item) => item.media_type === 'movie');
-    }
-
-    if (activeTab === 'tv') {
-      return results.filter((item) => item.media_type === 'tv');
-    }
-
-    return results.filter((item) => isAnimationContent(item));
-  };
   const handleGenreSelect = (genreId: number) => {
     setSearchQuery('');
     setSearchResults([]);
     setIsSearching(false);
     setSelectedGenre(genreId);
+    window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
   const handleOptimizedSearch = async (query: string) => {
@@ -142,17 +142,17 @@ export default function HomePage({ navigateTo }: HomePageProps = {}) {
     }
 
     const results = await searchAllContent(query);
-    setSearchResults(filterResultsByActiveTab(results));
+    setSelectedGenre(0);
+    setSearchResults(results);
     setIsSearching(true);
+    window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
   // Fetch all content types on mount
   useEffect(() => {
     const fetchAllContent = async () => {
-      const [moviesData, tvData, animationsData, newReleaseData] = await Promise.all([
-        getTrendingMovies(),
-        getTrendingTVShows(),
-        getTrendingAnimations(),
+      const [{ movies: moviesData, tvShows: tvData, animations: animationsData }, newReleaseData] = await Promise.all([
+        getBrowseContentCatalog(),
         getNewReleaseMovies()
       ]);
       
@@ -164,8 +164,25 @@ export default function HomePage({ navigateTo }: HomePageProps = {}) {
     fetchAllContent();
   }, []);
 
+  useEffect(() => {
+    window.scrollTo({ top: 0, behavior: 'auto' });
+  }, [location.pathname, location.key]);
+
   const handleBackToHome = () => {
+    if (selectedGenre > 0) {
+      if (navigateTo) {
+        navigateTo('/');
+      } else {
+        void navigate('/');
+      }
+    }
+
+    setSelectedGenre(0);
+    setSearchQuery('');
+    setSearchResults([]);
+    setIsSearching(false);
     resetToBrowse();
+    window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
   const filteredResults = useMemo(() => {
@@ -174,7 +191,14 @@ export default function HomePage({ navigateTo }: HomePageProps = {}) {
     }
 
     const filtered = [...searchResults];
-    filtered.sort((a, b) => (b.vote_average || 0) - (a.vote_average || 0));
+    filtered.sort((a, b) => {
+      const popularityDelta = (b.popularity || 0) - (a.popularity || 0);
+      if (popularityDelta !== 0) {
+        return popularityDelta;
+      }
+
+      return (b.vote_average || 0) - (a.vote_average || 0);
+    });
     return filtered;
   }, [searchQuery, searchResults]);
 
@@ -187,29 +211,64 @@ export default function HomePage({ navigateTo }: HomePageProps = {}) {
 
     void searchAllContent(searchQuery).then((results) => {
       if (cancelled) return;
-      setSearchResults(filterResultsByActiveTab(results));
+      setSearchResults(results);
       setIsSearching(true);
     });
 
     return () => {
       cancelled = true;
     };
-  }, [activeTab]);
+  }, [searchQuery, setIsSearching, setSearchResults]);
+
+  useEffect(() => {
+    if (!navigationState?.selectedMovie || selectedMovie) {
+      return;
+    }
+
+    const matchedMovie =
+      allBrowseContent.find((item) => getContentStorageKey(item) === getContentStorageKey(navigationState.selectedMovie!)) ??
+      allBrowseContent.find((item) => item.id === navigationState.selectedMovie!.id) ??
+      navigationState.selectedMovie;
+
+    setSelectedGenre(0);
+    setSearchQuery('');
+    setSearchResults([]);
+    setIsSearching(false);
+    setActiveTab(
+      matchedMovie.media_type === 'tv'
+        ? 'tv'
+        : isAnimationContent(matchedMovie)
+          ? 'animations'
+          : 'movies'
+    );
+    openMovieDetails(matchedMovie, navigationState.autoplay ?? false);
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+    void navigate(location.pathname, { replace: true, state: null });
+  }, [
+    allBrowseContent,
+    location.pathname,
+    navigate,
+    navigationState,
+    openMovieDetails,
+    selectedMovie,
+    setIsSearching,
+    setSearchQuery,
+    setSearchResults,
+  ]);
 
   return (
     <div className="min-h-screen bg-black overflow-x-hidden selection:bg-red-600 selection:text-white">
       {/* Back to Home Navbar */}
       <BackToHomeNavbar
-        isVisible={!!searchQuery || selectedGenre > 0}
+        isVisible={showBackToHomeNavbar}
         onBackToHome={() => {
-          setSelectedGenre(0);
           handleBackToHome();
         }}
         label={selectedGenre > 0 ? 'Back to Home' : 'Back to Search'}
       />
 
       {/* Navigation Tabs and Search */}
-      <div className="relative z-[1400] px-3 py-5 pt-18 sm:px-6 sm:py-6 sm:pt-20 lg:px-8">
+      <div className={`relative z-10 px-3 py-5 sm:px-6 sm:py-6 lg:px-8 ${showBackToHomeNavbar ? 'pt-6 sm:pt-8' : 'pt-18 sm:pt-20'}`}>
         {/* Content Type Tabs */}
         <div className="mb-5 rounded-[28px] border border-white/10 bg-black/45 p-4 shadow-2xl shadow-black/25 backdrop-blur-xl sm:mb-6 sm:p-5">
           <div className="mb-4 flex flex-wrap items-center gap-3 sm:gap-4">
@@ -281,7 +340,7 @@ export default function HomePage({ navigateTo }: HomePageProps = {}) {
           </div>
           <h2 className="text-2xl font-bold text-white mb-4">No results found</h2>
           <p className="text-gray-400 mb-4">
-            No {activeTab === 'movies' ? 'movies' : activeTab === 'tv' ? 'TV shows' : 'animations'} match your search for "{searchQuery}"
+            No titles match your search for "{searchQuery}"
           </p>
           <button
             onClick={() => {
@@ -364,6 +423,7 @@ export default function HomePage({ navigateTo }: HomePageProps = {}) {
                   subtitle="The most popular TV shows right now"
                   onMovieSelect={(show) => openMovieDetails(show)}
                   autoScroll={false}
+                  className="pt-4"
                 />
 
                 <ModernMovieCarousel
@@ -384,6 +444,7 @@ export default function HomePage({ navigateTo }: HomePageProps = {}) {
                   subtitle="The most popular animated content right now"
                   onMovieSelect={(animation) => openMovieDetails(animation)}
                   autoScroll={false}
+                  className="pt-4"
                 />
 
                 <ModernMovieCarousel
@@ -411,8 +472,15 @@ export default function HomePage({ navigateTo }: HomePageProps = {}) {
         playerError={playerError}
         playerUrl={playerUrl}
         relatedMovies={movies.slice(0, 6)}
+        currentSource={currentSource}
         onClose={closeMovieDetails}
-        onPlay={() => selectedMovie && void playMovie(selectedMovie)}
+        onPlay={(season, episode) => selectedMovie && void playMovie(selectedMovie, season, episode, currentSource)}
+        onSourceChange={(source, season, episode) => {
+          setCurrentSource(source);
+          if (selectedMovie) {
+            void playMovie(selectedMovie, season, episode, source);
+          }
+        }}
         onPlayerReady={handlePlayerReady}
       />
 

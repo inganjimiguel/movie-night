@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
-import { ChevronDown, ChevronUp } from 'lucide-react';
+import { ChevronDown, ChevronUp, Heart, Sparkles } from 'lucide-react';
+import { useLocation } from 'react-router-dom';
 import { UserPreferencesProvider } from './contexts/UserPreferencesContext';
 import AppRouter from './components/layout/AppRouter';
 import SEOHead from './components/seo/SEOHead';
@@ -9,6 +10,8 @@ import Footer from './components/layout/Footer';
 
 export default function App() {
   console.log('App component rendering!');
+  const location = useLocation();
+  const isHomePage = location.pathname === '/';
   const [isDonationModalOpen, setIsDonationModalOpen] = useState(false);
   const [showScrollUpButton, setShowScrollUpButton] = useState(false);
   const [showScrollDownButton, setShowScrollDownButton] = useState(true);
@@ -43,42 +46,28 @@ export default function App() {
   return (
     <>
       <SEOHead />
-      {/* Donation Button - Direct Implementation */}
-      <div 
-        style={{
-          position: 'fixed',
-          top: 'calc(env(safe-area-inset-top, 0px) + 88px)',
-          right: 'max(12px, env(safe-area-inset-right, 0px))',
-          backgroundColor: '#dc2626',
-          color: 'white',
-          padding: 'clamp(10px, 2vw, 12px) clamp(14px, 3vw, 24px)',
-          borderRadius: '25px',
-          fontSize: 'clamp(12px, 2.6vw, 16px)',
-          fontWeight: 'bold',
-          cursor: 'pointer',
-          border: '2px solid #b91c1c',
-          boxShadow: '0 4px 15px rgba(220, 38, 38, 0.5)',
-          zIndex: 180,
-          fontFamily: 'Arial, sans-serif',
-          display: 'flex',
-          alignItems: 'center',
-          gap: '8px',
-          transition: 'all 0.3s ease',
-          maxWidth: 'calc(100vw - 24px)',
-          whiteSpace: 'nowrap'
-        }}
+      <motion.button
+        initial={{ opacity: 0, y: -16, scale: 0.96 }}
+        animate={{ opacity: 1, y: 0, scale: 1 }}
+        whileHover={{ scale: 1.03, y: -2 }}
+        whileTap={{ scale: 0.97 }}
+        className="group fixed right-3 top-[calc(env(safe-area-inset-top,0px)+84px)] z-[180] flex max-w-[calc(100vw-24px)] items-center gap-3 overflow-hidden rounded-full border border-red-200/20 bg-[linear-gradient(135deg,rgba(220,38,38,0.96),rgba(127,29,29,0.96))] px-3 py-2 text-left shadow-[0_16px_40px_rgba(127,29,29,0.35)] backdrop-blur-xl sm:right-5 sm:px-4 sm:py-3"
         onClick={() => setIsDonationModalOpen(true)}
-        onMouseEnter={(e) => {
-          e.currentTarget.style.backgroundColor = '#b91c1c';
-          e.currentTarget.style.transform = 'scale(1.05)';
-        }}
-        onMouseLeave={(e) => {
-          e.currentTarget.style.backgroundColor = '#dc2626';
-          e.currentTarget.style.transform = 'scale(1)';
-        }}
+        aria-label="Open support us popup"
       >
-        ❤️ Donate
-      </div>
+        <span className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_top,rgba(255,255,255,0.26),transparent_52%)] opacity-80" />
+        <span className="relative flex h-10 w-10 items-center justify-center rounded-full border border-white/20 bg-white/14 shadow-inner shadow-white/10">
+          <Heart className="h-5 w-5 fill-white text-white" />
+        </span>
+        <span className="relative flex min-w-0 flex-col">
+          <span className="flex items-center gap-1 text-[10px] font-semibold uppercase tracking-[0.28em] text-red-100/80">
+            <Sparkles className="h-3 w-3" />
+            Keep it rolling
+          </span>
+          <span className="truncate text-sm font-extrabold text-white sm:text-base">Support us</span>
+        </span>
+       
+      </motion.button>
       
       {/* Donation Modal */}
       <DonationModal
@@ -125,6 +114,8 @@ export default function App() {
       
       <UserPreferencesProvider>
         <div className="min-h-screen flex flex-col">
+          {/* No global navbar is mounted here today; keep this home-route gate in place for when one is added. */}
+          {isHomePage && null}
           <AppRouter />
           <Footer />
         </div>

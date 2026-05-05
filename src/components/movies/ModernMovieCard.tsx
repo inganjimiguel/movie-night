@@ -85,8 +85,8 @@ export default function ModernMovieCard({
   const year = getContentYear(movie);
   const contentType = getContentTypeLabel(movie);
   const ContentTypeIcon = contentTypeStyles[contentType].icon;
-  const liked = isFavorite(movie.id);
-  const inWatchLater = isWatchLater(movie.id);
+  const liked = isFavorite(movie);
+  const inWatchLater = isWatchLater(movie);
 
   const clearTimers = () => {
     if (hoverTimerRef.current) {
@@ -288,7 +288,7 @@ export default function ModernMovieCard({
               animate={{ opacity: 1, y: 0, scale: 1 }}
               exit={{ opacity: 0, y: 10, scale: 0.96 }}
               transition={{ duration: 0.2 }}
-              className="fixed z-[1200] overflow-hidden rounded-3xl border border-white/10 bg-black/88 shadow-2xl shadow-black/70 backdrop-blur-xl"
+              className="fixed z-[2200] overflow-hidden rounded-3xl border border-white/10 bg-black/88 shadow-2xl shadow-black/70 backdrop-blur-xl"
               style={{ top: previewRect.top, left: previewRect.left, width: previewRect.width }}
               onMouseEnter={handlePointerEnter}
               onMouseLeave={handlePointerLeave}

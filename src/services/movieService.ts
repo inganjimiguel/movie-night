@@ -1,6 +1,5 @@
 /// <reference types="vite/client" />
 const TMDB_BASE_URL = 'https://api.themoviedb.org/3';
-
 // User provided credentials for the demo
 const FALLBACK_API_KEY = "8cb4712984e3c0d68f880b04c4d4f278";
 const FALLBACK_TOKEN = "eyJhbGciOiJIUzI1NiJ9.eyJhdWQiOiI4Y2I0NzEyOTg0ZTNjMGQ2OGY4ODBiMDRjNGQ0ZjI3OCIsIm5iZiI6MTc3NjkzNDY1Ni4xNzgsInN1YiI6IjY5ZTlkZjAwZjY0NjE2ZGNmZmJiMWNjNyIsInNjb3BlcyI6WyJhcGlfcmVhZCJdLCJ2ZXJzaW9uIjoxfQ.kwHMCXgkOcz8pjX-sdIvrPB9D_7vWIYvoND0RvByB1A";
@@ -16,6 +15,8 @@ export interface MovieData {
   backdrop_path: string;
   release_date: string;
   vote_average: number;
+  popularity?: number;
+  viewCount?: number;
   genre_ids: number[];
   media_type?: 'movie' | 'tv' | 'animation';
   /** Present for TV results (TMDB uses `name` instead of `title`). */
@@ -34,6 +35,8 @@ export interface TVShowData {
   release_date: string;
   first_air_date: string;
   vote_average: number;
+  popularity?: number;
+  viewCount?: number;
   genre_ids: number[];
   media_type: 'tv';
 }
@@ -48,6 +51,8 @@ export interface AnimationData {
   release_date: string;
   first_air_date?: string;
   vote_average: number;
+  popularity?: number;
+  viewCount?: number;
   genre_ids: number[];
   media_type: 'movie' | 'tv' | 'animation';
 }
@@ -75,18 +80,44 @@ export interface TrailerData {
   videos: MovieVideoResult[];
 }
 
-export type VideoSource = 'vidsrc';
+export type VideoSource = 'vidlinkPro' | 'twoEmbed' | 'superembedStream' | 'autoembedCc' | 'godriveplayer' | 'vidsrcTo' | 'vsembedSu';
+export const DEFAULT_VIDEO_SOURCE = (import.meta.env.VITE_DEFAULT_VIDEO_SOURCE || 'vidlinkPro') as VideoSource;
+export const VIDEO_SOURCE_OPTIONS: Array<{
+  id: VideoSource;
+  name: string;
+  baseUrl: string;
+}> = [
+  { id: 'vidlinkPro', name: 'vidlink.pro', baseUrl: 'https://vidlink.pro' },
+  { id: 'twoEmbed', name: '2embed.cc', baseUrl: 'https://2embed.cc' },
+  { id: 'superembedStream', name: 'superembed.stream', baseUrl: 'https://superembed.stream' },
+  { id: 'autoembedCc', name: 'autoembed.cc', baseUrl: 'https://autoembed.cc' },
+  { id: 'godriveplayer', name: 'godriveplayer.com', baseUrl: 'https://godriveplayer.com' },
+  { id: 'vsembedSu', name: 'vsembed.su', baseUrl: 'https://vidsrc-embed.su' },
+  { id: 'vidsrcTo', name: 'vidsrc.to', baseUrl: 'https://vidsrc.to' },
+];
 const trailerUrlCache = new Map<string, Promise<string | null>>();
 
-export const isTvLikeContent = (item: Pick<MovieData, 'media_type' | 'genre_ids' | 'name' | 'title'>): boolean => {
+const getVideoSourceBaseUrl = (source: VideoSource) => {
+  return VIDEO_SOURCE_OPTIONS.find((option) => option.id === source)?.baseUrl ?? VIDEO_SOURCE_OPTIONS[0].baseUrl;
+};
+
+export const getVideoSourceName = (source: VideoSource): string => {
+  return VIDEO_SOURCE_OPTIONS.find((option) => option.id === source)?.name ?? source;
+};
+
+export const isTvLikeContent = (item: Pick<MovieData, 'media_type' | 'genre_ids' | 'name' | 'title' | 'first_air_date'>): boolean => {
   if (item.media_type === 'tv') return true;
-  // Animated TV is still TV for embed purposes (episode/season navigation).
-  if (item.media_type === 'animation' && item.genre_ids?.includes(16) && item.name && !item.title) return true;
+  // Animated TV should still use the TV embed path even when we normalize it under the animation category.
+  if (item.media_type === 'animation' && item.genre_ids?.includes(16) && item.name && item.first_air_date) return true;
   return false;
 };
 
 export const isAnimationContent = (item: Pick<MovieData, 'genre_ids'>): boolean => {
   return item.genre_ids?.includes(16) ?? false;
+};
+
+const getRankingSignal = (item: Pick<MovieData, 'popularity' | 'viewCount' | 'vote_average'>) => {
+  return item.viewCount || item.popularity || item.vote_average || 0;
 };
 
 export const getContentTitle = (item: Pick<MovieData, 'title' | 'name'>): string => {
@@ -112,28 +143,137 @@ export const getContentStorageKey = (item: Pick<MovieData, 'id' | 'media_type' |
   return `${getContentTypeLabel(item).toLowerCase().replace(/\s+/g, '-')}:${item.id}`;
 };
 
+const dedupeContent = <T extends ContentData>(items: T[]): T[] => {
+  return items.filter((item, index, collection) => (
+    collection.findIndex((candidate) => getContentStorageKey(candidate) === getContentStorageKey(item)) === index
+  ));
+};
+
+export const sortContentByPerformance = <T extends ContentData>(items: T[]): T[] => {
+  return [...items].sort((a, b) => {
+    const rankingDelta = getRankingSignal(b) - getRankingSignal(a);
+    if (rankingDelta !== 0) {
+      return rankingDelta;
+    }
+
+    const popularityDelta = (b.popularity || 0) - (a.popularity || 0);
+    if (popularityDelta !== 0) {
+      return popularityDelta;
+    }
+
+    return (b.vote_average || 0) - (a.vote_average || 0);
+  });
+};
+
+const normalizeMovieResult = (movie: any, mediaType: 'movie' | 'animation' = 'movie'): ContentData => ({
+  ...movie,
+  media_type: mediaType,
+  title: movie.title || movie.name || 'Untitled',
+  release_date: movie.release_date || movie.first_air_date || '',
+  genre_ids: movie.genre_ids || [],
+  popularity: movie.popularity || 0,
+  viewCount: movie.viewCount || movie.vote_count || 0,
+});
+
+const normalizeTvResult = (show: any, mediaType: 'tv' | 'animation' = 'tv'): ContentData => ({
+  ...show,
+  title: show.name || show.title || 'Untitled',
+  name: show.name || show.title || 'Untitled',
+  release_date: show.first_air_date || show.release_date || '',
+  first_air_date: show.first_air_date || show.release_date || '',
+  genre_ids: show.genre_ids || [],
+  media_type: mediaType,
+  popularity: show.popularity || 0,
+  viewCount: show.viewCount || show.vote_count || 0,
+});
+
 export const getVideoUrl = (
   id: number,
   mediaType: 'movie' | 'tv' | 'animation' = 'movie',
   season?: number,
-  episode?: number
+  episode?: number,
+  source: VideoSource = DEFAULT_VIDEO_SOURCE
 ): string => {
-  if (mediaType === 'tv') {
-    if (season && episode) {
-      return `https://vsembed.ru/embed/tv/${id}/${season}-${episode}`;
+  const params = new URLSearchParams({ autoplay: '1' });
+  const baseUrl = getVideoSourceBaseUrl(source);
+  const isTv = mediaType === 'tv';
+
+  switch (source) {
+    case 'vsembedSu': {
+      if (isTv) {
+        params.set('tmdb', String(id));
+        if (season) params.set('season', String(season));
+        if (episode) params.set('episode', String(episode));
+        params.set('autonext', '1');
+        return `${baseUrl}/embed/tv?${params.toString()}`;
+      }
+      params.set('tmdb', String(id));
+      return `${baseUrl}/embed/movie?${params.toString()}`;
     }
-    return `https://vsembed.ru/embed/tv/${id}`;
+
+    case 'vidlinkPro': {
+      if (isTv) {
+        const se = season && episode ? `/${season}/${episode}` : '';
+        return `${baseUrl}/tv/${id}${se}?${params.toString()}`;
+      }
+      return `${baseUrl}/movie/${id}?${params.toString()}`;
+    }
+
+    case 'twoEmbed': {
+      if (isTv) {
+        const se = season && episode ? `/${id}/${season}/${episode}` : `/${id}`;
+        return `${baseUrl}/embed/tv${se}?${params.toString()}`;
+      }
+      return `${baseUrl}/embed/${id}?${params.toString()}`;
+    }
+
+    case 'autoembedCc': {
+      if (isTv) {
+        const se = season && episode ? `/${id}/${season}/${episode}` : `/${id}`;
+        return `${baseUrl}/tv${se}?${params.toString()}`;
+      }
+      return `${baseUrl}/movie/${id}?${params.toString()}`;
+    }
+
+    case 'superembedStream': {
+      params.set('video_id', String(id));
+      params.set('tmdb', '1');
+      if (isTv && season) params.set('season', String(season));
+      if (isTv && episode) params.set('episode', String(episode));
+      return `${baseUrl}/?${params.toString()}`;
+    }
+
+    case 'godriveplayer': {
+      params.set('tmdb', String(id));
+      if (isTv && season) params.set('season', String(season));
+      if (isTv && episode) params.set('episode', String(episode));
+      return `${baseUrl}/player.php?${params.toString()}`;
+    }
+
+    // vidsrcTo (and any future path-style sources)
+    default: {
+      if (isTv) {
+        if (season && episode) {
+          return `${baseUrl}/embed/tv/${id}/${season}/${episode}?${params.toString()}`;
+        }
+        return `${baseUrl}/embed/tv/${id}?${params.toString()}`;
+      }
+      return `${baseUrl}/embed/movie/${id}?${params.toString()}`;
+    }
   }
-  // VidSrc currently wraps embeds with an extra iframe; using the resolved player directly is more reliable.
-  return `https://vsembed.ru/embed/movie/${id}/`;
 };
 
-export const getVidsrcUrl = (item: Pick<MovieData, 'id' | 'media_type' | 'genre_ids' | 'name' | 'title'>, season = 1, episode = 1): string => {
+export const getVidsrcUrl = (
+  item: Pick<MovieData, 'id' | 'media_type' | 'genre_ids' | 'name' | 'title' | 'first_air_date'>,
+  season = 1,
+  episode = 1,
+  source: VideoSource = DEFAULT_VIDEO_SOURCE
+): string => {
   const mediaType: 'movie' | 'tv' = isTvLikeContent(item) ? 'tv' : 'movie';
   if (mediaType === 'tv') {
-    return getVideoUrl(item.id, 'tv', season, episode);
+    return getVideoUrl(item.id, 'tv', season, episode, source);
   }
-  return getVideoUrl(item.id, 'movie');
+  return getVideoUrl(item.id, 'movie', undefined, undefined, source);
 };
 
 const getTmdbVideoPath = (item: Pick<MovieData, 'id' | 'media_type' | 'genre_ids' | 'name' | 'title'>): string => {
@@ -252,10 +392,7 @@ export const getTrendingMovies = async (): Promise<MovieData[]> => {
       headers: getHeaders()
     });
     const data = await res.json();
-    return data.results?.map((movie: any) => ({
-      ...movie,
-      media_type: 'movie'
-    })) || getFallbackMovies();
+    return data.results?.map((movie: any) => normalizeMovieResult(movie, 'movie')) || getFallbackMovies();
   } catch (err) {
     console.error('TMDB Fetch Error:', err);
     return getFallbackMovies();
@@ -285,10 +422,7 @@ export const getNewReleaseMovies = async (): Promise<MovieData[]> => {
       headers: getHeaders()
     });
     const data = await res.json();
-    return data.results?.map((movie: any) => ({
-      ...movie,
-      media_type: 'movie'
-    })) || [];
+    return data.results?.map((movie: any) => normalizeMovieResult(movie, 'movie')) || [];
   } catch (err) {
     console.error('TMDB New Releases Fetch Error:', err);
     return [];
@@ -388,12 +522,7 @@ export const getTrendingTVShows = async (): Promise<TVShowData[]> => {
       headers: getHeaders()
     });
     const data = await res.json();
-    return data.results?.map((show: any) => ({
-      ...show,
-      title: show.name,
-      release_date: show.first_air_date,
-      media_type: 'tv'
-    })) || [];
+    return data.results?.map((show: any) => normalizeTvResult(show, 'tv') as TVShowData) || [];
   } catch (err) {
     console.error('TMDB TV Shows Fetch Error:', err);
     return [];
@@ -418,30 +547,40 @@ export const getTrendingAnimations = async (): Promise<AnimationData[]> => {
     ]);
 
     const animations: AnimationData[] = [
-      ...(moviesData.results?.map((movie: any) => ({
-        ...movie,
-        media_type: 'movie'
-      })) || []),
-      ...(tvData.results?.map((show: any) => ({
-        ...show,
-        title: show.name,
-        release_date: show.first_air_date,
-        media_type: 'tv'
-      })) || [])
+      ...(moviesData.results?.map((movie: any) => normalizeMovieResult(movie, 'animation') as AnimationData) || []),
+      ...(tvData.results?.map((show: any) => normalizeTvResult(show, 'animation') as AnimationData) || [])
     ];
 
-    return animations.sort((a, b) => (b.vote_average || 0) - (a.vote_average || 0));
+    return sortContentByPerformance(dedupeContent(animations)) as AnimationData[];
   } catch (err) {
     console.error('TMDB Animations Fetch Error:', err);
     return [];
   }
 };
 
+export const getBrowseContentCatalog = async (): Promise<{
+  movies: MovieData[];
+  tvShows: TVShowData[];
+  animations: AnimationData[];
+}> => {
+  const [movies, tvShows, animations] = await Promise.all([
+    getTrendingMovies(),
+    getTrendingTVShows(),
+    getTrendingAnimations(),
+  ]);
+
+  return {
+    movies: sortContentByPerformance(dedupeContent(movies)) as MovieData[],
+    tvShows: sortContentByPerformance(dedupeContent(tvShows)) as TVShowData[],
+    animations: sortContentByPerformance(dedupeContent(animations)) as AnimationData[],
+  };
+};
+
 export const searchAllContent = async (query: string): Promise<ContentData[]> => {
   if (!query) return [];
   
   try {
-    // Search across movies, TV shows, and animations
+    // Search across movies, TV shows, and animation categories.
     const [moviesRes, tvRes] = await Promise.all([
       fetch(`${TMDB_BASE_URL}/search/movie?query=${encodeURIComponent(query)}&include_adult=false&language=en-US&page=1`, {
         headers: getHeaders()
@@ -456,25 +595,17 @@ export const searchAllContent = async (query: string): Promise<ContentData[]> =>
       tvRes.json()
     ]);
 
-    const allContent: ContentData[] = [
-      ...(moviesData.results?.map((movie: any) => ({
-        ...movie,
-        media_type: 'movie'
-      })) || []),
-      ...(tvData.results?.map((show: any) => ({
-        ...show,
-        title: show.name,
-        release_date: show.first_air_date,
-        media_type: 'tv'
-      })) || [])
-    ];
+    const movieResults = moviesData.results?.map((movie: any) => (
+      normalizeMovieResult(movie, isAnimationContent({ genre_ids: movie.genre_ids || [] }) ? 'animation' : 'movie')
+    )) || [];
+    const tvResults = tvData.results?.map((show: any) => (
+      normalizeTvResult(show, isAnimationContent({ genre_ids: show.genre_ids || [] }) ? 'animation' : 'tv')
+    )) || [];
 
-    const dedupedContent = allContent.filter((item, index, items) => {
-      const key = `${item.media_type}:${item.id}`;
-      return items.findIndex((candidate) => `${candidate.media_type}:${candidate.id}` === key) === index;
-    });
-
-    return dedupedContent.sort((a, b) => (b.vote_average || 0) - (a.vote_average || 0));
+    return sortContentByPerformance(dedupeContent([
+      ...movieResults,
+      ...tvResults,
+    ]));
   } catch (err) {
     console.error('TMDB Search All Content Error:', err);
     return [];

@@ -9,9 +9,12 @@ import {
   getContentYear,
   getImageUrl,
   getTrailerUrl,
-  getUpcomingContent,
+  getBrowseContentCatalog,
+  getVidsrcUrl,
+  DEFAULT_VIDEO_SOURCE,
   type ContentData,
   type MovieData,
+  type VideoSource,
 } from '../../services/movieService';
 
 interface TrailersPageProps {
@@ -36,7 +39,7 @@ const contentTypeStyles = {
 } as const;
 
 export default function TrailersPage({ navigateTo }: TrailersPageProps = {}) {
-  const [upcomingItems, setUpcomingItems] = useState<ContentData[]>([]);
+  const [items, setItems] = useState<ContentData[]>([]);
   const [loading, setLoading] = useState(true);
   const [currentIndex, setCurrentIndex] = useState(0);
   const [isPlaying, setIsPlaying] = useState(false);
@@ -50,20 +53,22 @@ export default function TrailersPage({ navigateTo }: TrailersPageProps = {}) {
   const [isPlayerLoading, setIsPlayerLoading] = useState(false);
   const [playerError, setPlayerError] = useState<string | null>(null);
   const [playerUrl, setPlayerUrl] = useState<string | null>(null);
+  const [currentSource, setCurrentSource] = useState<VideoSource>(DEFAULT_VIDEO_SOURCE);
 
   useEffect(() => {
-    const fetchUpcoming = async () => {
+    const fetchAllContent = async () => {
       try {
-        const data = await getUpcomingContent();
-        setUpcomingItems(data);
+        const data = await getBrowseContentCatalog();
+        const combined = [...data.movies, ...data.tvShows, ...data.animations];
+        setItems(combined);
       } catch (error) {
-        console.error('Error fetching upcoming content:', error);
+        console.error('Error fetching content:', error);
       } finally {
         setLoading(false);
       }
     };
 
-    void fetchUpcoming();
+    void fetchAllContent();
   }, []);
 
   const resetActiveTrailerState = () => {
@@ -79,7 +84,7 @@ export default function TrailersPage({ navigateTo }: TrailersPageProps = {}) {
     const itemHeight = window.innerHeight;
     const newIndex = Math.round(scrollTop / itemHeight);
 
-    if (newIndex !== currentIndex && newIndex >= 0 && newIndex < upcomingItems.length) {
+    if (newIndex !== currentIndex && newIndex >= 0 && newIndex < items.length) {
       setCurrentIndex(newIndex);
       resetActiveTrailerState();
     }
@@ -119,7 +124,7 @@ export default function TrailersPage({ navigateTo }: TrailersPageProps = {}) {
     setIsModalPlaying(true);
     setIsPlayerLoading(true);
     setPlayerError(null);
-    setPlayerUrl(null);
+    setPlayerUrl(getVidsrcUrl(selectedMovie, 1, 1, currentSource));
   };
 
   const handlePlayerReady = () => {
@@ -169,13 +174,13 @@ export default function TrailersPage({ navigateTo }: TrailersPageProps = {}) {
         </button>
         <div className="text-center">
           <Loader2 className="mx-auto mb-4 h-12 w-12 animate-spin text-red-600" />
-          <p className="text-xl text-white">Loading upcoming trailers...</p>
+          <p className="text-xl text-white">Loading trailers...</p>
         </div>
       </div>
     );
   }
 
-  if (upcomingItems.length === 0) {
+  if (items.length === 0) {
     return (
       <div className="relative flex min-h-screen items-center justify-center bg-black">
         <button
@@ -184,7 +189,7 @@ export default function TrailersPage({ navigateTo }: TrailersPageProps = {}) {
         >
           <X className="h-5 w-5 text-white" />
         </button>
-        <p className="text-xl text-white">No upcoming releases available right now.</p>
+        <p className="text-xl text-white">No trailers available right now.</p>
       </div>
     );
   }
@@ -199,7 +204,7 @@ export default function TrailersPage({ navigateTo }: TrailersPageProps = {}) {
       </button>
 
       <div className="pointer-events-none fixed left-4 top-4 z-40 rounded-full border border-white/10 bg-black/55 px-4 py-2 text-sm font-semibold text-white backdrop-blur-md">
-        Upcoming
+        Trailers
       </div>
 
       <div
@@ -208,7 +213,7 @@ export default function TrailersPage({ navigateTo }: TrailersPageProps = {}) {
         onScroll={handleScroll}
         style={{ scrollBehavior: 'smooth' }}
       >
-        {upcomingItems.map((item, index) => {
+        {items.map((item, index) => {
           const title = getContentTitle(item);
           const contentType = getContentTypeLabel(item);
           const ContentTypeIcon = contentTypeStyles[contentType].icon;
@@ -305,7 +310,7 @@ export default function TrailersPage({ navigateTo }: TrailersPageProps = {}) {
       </div>
 
       <div className="fixed right-4 top-1/2 z-50 flex -translate-y-1/2 flex-col gap-2">
-        {upcomingItems.map((_, index) => (
+        {items.map((_, index) => (
           <div
             key={index}
             className={`rounded-full transition-all ${index === currentIndex ? 'h-8 w-2 bg-red-600' : 'h-2 w-2 bg-gray-600'}`}
@@ -322,8 +327,17 @@ export default function TrailersPage({ navigateTo }: TrailersPageProps = {}) {
             playerError={playerError}
             playerUrl={playerUrl}
             relatedMovies={[]}
+            currentSource={currentSource}
             onClose={handleCloseModal}
             onPlay={handlePlayMovie}
+            onSourceChange={(source, season, episode) => {
+              setCurrentSource(source);
+              if (selectedMovie) {
+                setPlayerUrl(getVidsrcUrl(selectedMovie, season ?? 1, episode ?? 1, source));
+                setIsModalPlaying(true);
+                setIsPlayerLoading(true);
+              }
+            }}
             onPlayerReady={handlePlayerReady}
           />
         )}

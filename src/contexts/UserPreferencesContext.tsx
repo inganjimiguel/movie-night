@@ -5,11 +5,11 @@ interface UserPreferencesContextType {
   favorites: MovieData[];
   watchLater: MovieData[];
   addToFavorites: (movie: MovieData) => void;
-  removeFromFavorites: (movieId: number) => void;
-  isFavorite: (movieId: number) => boolean;
+  removeFromFavorites: (movie: MovieData | number) => void;
+  isFavorite: (movie: MovieData | number) => boolean;
   addToWatchLater: (movie: MovieData) => void;
-  removeFromWatchLater: (movieId: number) => void;
-  isWatchLater: (movieId: number) => boolean;
+  removeFromWatchLater: (movie: MovieData | number) => void;
+  isWatchLater: (movie: MovieData | number) => boolean;
 }
 
 const UserPreferencesContext = createContext<UserPreferencesContextType | undefined>(undefined);
@@ -23,7 +23,13 @@ export function UserPreferencesProvider({ children }: { children: ReactNode }) {
   const [favorites, setFavorites] = useState<MovieData[]>([]);
   const [watchLater, setWatchLater] = useState<MovieData[]>([]);
   const matchesItem = (item: MovieData, target: MovieData) => getContentStorageKey(item) === getContentStorageKey(target);
-  const matchesId = (item: MovieData, movieId: number) => item.id === movieId;
+  const matchesIdentifier = (item: MovieData, target: MovieData | number) => {
+    if (typeof target === 'number') {
+      return item.id === target;
+    }
+
+    return matchesItem(item, target);
+  };
 
   // Load data from localStorage on mount
   useEffect(() => {
@@ -79,12 +85,12 @@ export function UserPreferencesProvider({ children }: { children: ReactNode }) {
     });
   };
 
-  const removeFromFavorites = (movieId: number) => {
-    setFavorites(prev => prev.filter(movie => movie.id !== movieId));
+  const removeFromFavorites = (movie: MovieData | number) => {
+    setFavorites(prev => prev.filter(item => !matchesIdentifier(item, movie)));
   };
 
-  const isFavorite = (movieId: number) => {
-    return favorites.some(movie => matchesId(movie, movieId));
+  const isFavorite = (movie: MovieData | number) => {
+    return favorites.some(item => matchesIdentifier(item, movie));
   };
 
   const addToWatchLater = (movie: MovieData) => {
@@ -97,12 +103,12 @@ export function UserPreferencesProvider({ children }: { children: ReactNode }) {
     });
   };
 
-  const removeFromWatchLater = (movieId: number) => {
-    setWatchLater(prev => prev.filter(movie => movie.id !== movieId));
+  const removeFromWatchLater = (movie: MovieData | number) => {
+    setWatchLater(prev => prev.filter(item => !matchesIdentifier(item, movie)));
   };
 
-  const isWatchLater = (movieId: number) => {
-    return watchLater.some(movie => matchesId(movie, movieId));
+  const isWatchLater = (movie: MovieData | number) => {
+    return watchLater.some(item => matchesIdentifier(item, movie));
   };
 
   return (

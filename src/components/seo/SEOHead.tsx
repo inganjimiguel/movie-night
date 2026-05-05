@@ -144,9 +144,21 @@ export default function SEOHead({
     };
     
     addLink('dns-prefetch', '//image.tmdb.org');
+    addLink('dns-prefetch', '//vidlink.pro');
+    addLink('dns-prefetch', '//2embed.cc');
+    addLink('dns-prefetch', '//superembed.stream');
+    addLink('dns-prefetch', '//autoembed.cc');
+    addLink('dns-prefetch', '//godriveplayer.com');
+    addLink('dns-prefetch', '//vidsrc.wiki');
     addLink('dns-prefetch', '//vidsrc.to');
     addLink('dns-prefetch', '//fonts.googleapis.com');
     addLink('preconnect', 'https://image.tmdb.org');
+    addLink('preconnect', 'https://vidlink.pro');
+    addLink('preconnect', 'https://2embed.cc');
+    addLink('preconnect', 'https://superembed.stream');
+    addLink('preconnect', 'https://autoembed.cc');
+    addLink('preconnect', 'https://godriveplayer.com');
+    addLink('preconnect', 'https://vidsrc.wiki');
     addLink('preconnect', 'https://vidsrc.to');
     
     return () => {
