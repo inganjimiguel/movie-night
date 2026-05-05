@@ -4,12 +4,10 @@ import { ChevronDown, ChevronUp } from 'lucide-react';
 import { UserPreferencesProvider } from './contexts/UserPreferencesContext';
 import AppRouter from './components/layout/AppRouter';
 import SEOHead from './components/seo/SEOHead';
-import DonationModal from './components/payments/DonationModal';
 import Footer from './components/layout/Footer';
 
 export default function App() {
   console.log('App component rendering!');
-  const [isDonationModalOpen, setIsDonationModalOpen] = useState(false);
   const [showScrollUpButton, setShowScrollUpButton] = useState(false);
   const [showScrollDownButton, setShowScrollDownButton] = useState(true);
 
@@ -39,52 +37,10 @@ export default function App() {
   const handleScrollDown = () => {
     window.scrollBy({ top: window.innerHeight * 0.9, behavior: 'smooth' });
   };
-  
+
   return (
     <>
       <SEOHead />
-      {/* Donation Button - Direct Implementation */}
-      <div 
-        style={{
-          position: 'fixed',
-          top: 'calc(env(safe-area-inset-top, 0px) + 88px)',
-          right: 'max(12px, env(safe-area-inset-right, 0px))',
-          backgroundColor: '#dc2626',
-          color: 'white',
-          padding: 'clamp(10px, 2vw, 12px) clamp(14px, 3vw, 24px)',
-          borderRadius: '25px',
-          fontSize: 'clamp(12px, 2.6vw, 16px)',
-          fontWeight: 'bold',
-          cursor: 'pointer',
-          border: '2px solid #b91c1c',
-          boxShadow: '0 4px 15px rgba(220, 38, 38, 0.5)',
-          zIndex: 180,
-          fontFamily: 'Arial, sans-serif',
-          display: 'flex',
-          alignItems: 'center',
-          gap: '8px',
-          transition: 'all 0.3s ease',
-          maxWidth: 'calc(100vw - 24px)',
-          whiteSpace: 'nowrap'
-        }}
-        onClick={() => setIsDonationModalOpen(true)}
-        onMouseEnter={(e) => {
-          e.currentTarget.style.backgroundColor = '#b91c1c';
-          e.currentTarget.style.transform = 'scale(1.05)';
-        }}
-        onMouseLeave={(e) => {
-          e.currentTarget.style.backgroundColor = '#dc2626';
-          e.currentTarget.style.transform = 'scale(1)';
-        }}
-      >
-        ❤️ Donate
-      </div>
-      
-      {/* Donation Modal */}
-      <DonationModal
-        isOpen={isDonationModalOpen}
-        onClose={() => setIsDonationModalOpen(false)}
-      />
 
       <AnimatePresence>
         {(showScrollUpButton || showScrollDownButton) && (
@@ -122,7 +78,7 @@ export default function App() {
           </motion.div>
         )}
       </AnimatePresence>
-      
+
       <UserPreferencesProvider>
         <div className="min-h-screen flex flex-col">
           <AppRouter />

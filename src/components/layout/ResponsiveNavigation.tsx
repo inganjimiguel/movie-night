@@ -21,7 +21,6 @@ import {
 } from 'lucide-react';
 import type { FormEvent } from 'react';
 import { useUserPreferences } from '../../contexts/UserPreferencesContext';
-import DonationButton from '../payments/DonationButton';
 
 interface ResponsiveNavigationProps {
   isScrolled: boolean;
@@ -167,9 +166,6 @@ export default function ResponsiveNavigation({
                 }`} />
               </form>
             </div>
-
-            {/* Donation Button */}
-            <DonationButton variant="header" className="hidden sm:flex" />
 
             {/* Notifications */}
             <div className="relative" ref={notificationRef}>
