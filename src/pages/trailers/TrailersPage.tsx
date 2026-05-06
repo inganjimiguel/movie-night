@@ -10,6 +10,7 @@ import {
   getImageUrl,
   getTrailerUrl,
   getUpcomingContent,
+  VideoSource,
   type ContentData,
   type MovieData,
 } from '../../services/movieService';
@@ -324,8 +325,9 @@ export default function TrailersPage({ navigateTo }: TrailersPageProps = {}) {
             relatedMovies={[]}
             onClose={handleCloseModal}
             onPlay={handlePlayMovie}
-            onPlayerReady={handlePlayerReady}
-          />
+            onPlayerReady={handlePlayerReady} currentSource={'vidlinkPro'} onSourceChange={function (source: VideoSource, season?: number, episode?: number): void {
+              throw new Error('Function not implemented.');
+            } }          />
         )}
       </AnimatePresence>
     </div>
