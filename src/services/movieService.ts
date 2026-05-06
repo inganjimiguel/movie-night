@@ -408,13 +408,13 @@ const mergeCanonicalMovieMetadata = (
   return {
     ...item,
     media_type: mediaType,
-    imdb_id: metadata.imdb_id || item.imdb_id,
-    title: metadata.title || metadata.original_title || item.title,
-    overview: metadata.overview || item.overview,
-    poster_path: toPosterPath(metadata.poster) || item.poster_path,
-    backdrop_path: toPosterPath(metadata.backdrops?.[0]) || item.backdrop_path,
-    release_date: metadata.release_date || item.release_date,
-    vote_average: metadata.vote_average || item.vote_average,
+    imdb_id: item.imdb_id || metadata.imdb_id,
+    title: item.title || metadata.title || metadata.original_title || 'Untitled',
+    overview: item.overview || metadata.overview || '',
+    poster_path: item.poster_path || toPosterPath(metadata.poster) || '',
+    backdrop_path: item.backdrop_path || toPosterPath(metadata.backdrops?.[0]) || '',
+    release_date: item.release_date || metadata.release_date || '',
+    vote_average: item.vote_average || metadata.vote_average || 0,
   };
 };
 
@@ -430,20 +430,20 @@ const mergeCanonicalTvMetadata = (
     };
   }
 
-  const canonicalName = metadata.name || metadata.original_name || item.name || item.title;
+  const canonicalName = item.name || item.title || metadata.name || metadata.original_name || 'Untitled';
 
   return {
     ...item,
     media_type: mediaType,
-    imdb_id: metadata.imdb_id || item.imdb_id,
-    title: canonicalName || item.title,
-    name: canonicalName || item.name || item.title,
-    overview: metadata.overview || item.overview,
-    poster_path: toPosterPath(metadata.poster) || item.poster_path,
-    backdrop_path: toPosterPath(metadata.backdrops?.[0]) || item.backdrop_path,
-    release_date: metadata.first_air_date || item.release_date,
-    first_air_date: metadata.first_air_date || item.first_air_date || item.release_date,
-    vote_average: metadata.vote_average || item.vote_average,
+    imdb_id: item.imdb_id || metadata.imdb_id,
+    title: canonicalName,
+    name: canonicalName,
+    overview: item.overview || metadata.overview || '',
+    poster_path: item.poster_path || toPosterPath(metadata.poster) || '',
+    backdrop_path: item.backdrop_path || toPosterPath(metadata.backdrops?.[0]) || '',
+    release_date: item.release_date || item.first_air_date || metadata.first_air_date || '',
+    first_air_date: item.first_air_date || item.release_date || metadata.first_air_date || '',
+    vote_average: item.vote_average || metadata.vote_average || 0,
   };
 };
 
@@ -990,18 +990,28 @@ export const searchAllContent = async (query: string): Promise<ContentData[]> =>
   try {
     const normalizedQuery = query.trim();
     const [moviesResponse, tvResponse] = await Promise.all([
-      fetch(`${TWO_EMBED_API_BASE_URL}/search?q=${encodeURIComponent(normalizedQuery)}`),
-      fetch(`${TWO_EMBED_API_BASE_URL}/searchtv?q=${encodeURIComponent(normalizedQuery)}`)
+      fetch(`${TMDB_BASE_URL}/search/movie?query=${encodeURIComponent(normalizedQuery)}&include_adult=false&language=en-US&page=1`, {
+        headers: getHeaders()
+      }),
+      fetch(`${TMDB_BASE_URL}/search/tv?query=${encodeURIComponent(normalizedQuery)}&include_adult=false&language=en-US&page=1`, {
+        headers: getHeaders()
+      })
     ]);
 
     const [moviesData, tvData] = await Promise.all([
-      moviesResponse.ok ? moviesResponse.json() as Promise<TwoEmbedSearchResponse<TwoEmbedSearchMovieResult>> : Promise.resolve({ results: [] }),
-      tvResponse.ok ? tvResponse.json() as Promise<TwoEmbedSearchResponse<TwoEmbedSearchTvResult>> : Promise.resolve({ results: [] }),
+      moviesResponse.ok ? moviesResponse.json() : Promise.resolve({ results: [] }),
+      tvResponse.ok ? tvResponse.json() : Promise.resolve({ results: [] }),
     ]);
 
     const combinedResults: MovieData[] = [
-      ...(moviesData.results?.map(normalizeTwoEmbedMovieSearchResult) || []),
-      ...(tvData.results?.map(normalizeTwoEmbedTvSearchResult) || []),
+      ...(moviesData.results?.map((movie: any) => {
+        const isAnimation = (movie.genre_ids || []).includes(16);
+        return normalizeMovieResult(movie, isAnimation ? 'animation' : 'movie');
+      }) || []),
+      ...(tvData.results?.map((show: any) => {
+        const isAnimation = (show.genre_ids || []).includes(16);
+        return normalizeTvResult(show, isAnimation ? 'animation' : 'tv');
+      }) || []),
     ];
 
     const dedupedResults = combinedResults.filter((item, index, collection) => {
@@ -1020,7 +1030,7 @@ export const searchAllContent = async (query: string): Promise<ContentData[]> =>
     return dedupedResults
       .sort((a, b) => computeSearchRelevance(b, normalizedQuery) - computeSearchRelevance(a, normalizedQuery));
   } catch (err) {
-    console.error('2embed Search All Content Error:', err);
+    console.error('TMDB Search All Content Error:', err);
     return [];
   }
 };
