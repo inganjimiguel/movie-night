@@ -3,6 +3,7 @@ import { AnimatePresence, motion } from 'motion/react';
 import {
   AlertCircle,
   Clock,
+  Download,
   Heart,
   LoaderCircle,
   Play,
@@ -14,6 +15,7 @@ import {
   X,
 } from 'lucide-react';
 import Badge from '../common/Badge';
+import VideoSourceSelector from '../video/VideoSourceSelector';
 import VideoLoadingBanner from '../ui/VideoLoadingBanner';
 import {
   getContentReleaseDate,
@@ -29,8 +31,9 @@ import {
   type MovieData,
   type TvEpisodeDetails,
   type TvShowDetails,
+  type VideoSource,
 } from '../../services/movieService';
-import { useUserPreferences } from '../../contexts/UserPreferencesContext';
+import { useMediaLibrary } from '../../contexts/MediaLibraryContext';
 
 interface ModernMovieDetailsModalProps {
   movie: MovieData | null;
@@ -39,8 +42,10 @@ interface ModernMovieDetailsModalProps {
   playerError: string | null;
   playerUrl: string | null;
   relatedMovies: MovieData[];
+  currentSource: VideoSource;
   onClose: () => void;
-  onPlay: () => void;
+  onPlay: (season?: number, episode?: number) => void;
+  onSourceChange: (source: VideoSource, season?: number, episode?: number) => void;
   onPlayerReady?: () => void;
 }
 
@@ -50,8 +55,10 @@ export default function ModernMovieDetailsModal({
   isPlayerLoading,
   playerError,
   playerUrl,
+  currentSource,
   onClose,
   onPlay,
+  onSourceChange,
   onPlayerReady,
 }: ModernMovieDetailsModalProps) {
   const [tvDetails, setTvDetails] = useState<TvShowDetails | null>(null);
@@ -59,17 +66,17 @@ export default function ModernMovieDetailsModal({
   const [selectedSeason, setSelectedSeason] = useState(1);
   const [selectedEpisode, setSelectedEpisode] = useState(1);
   const [isEpisodeLoading, setIsEpisodeLoading] = useState(false);
+  const [downloadMessage, setDownloadMessage] = useState<string | null>(null);
 
-  const { isFavorite, addToFavorites, removeFromFavorites, isWatchLater, addToWatchLater, removeFromWatchLater } =
-    useUserPreferences();
+  const { hasLikedItem, toggleLikedItem, hasQueuedItem, toggleQueuedItem } = useMediaLibrary();
 
   const title = movie ? getContentTitle(movie) : '';
   const releaseDate = movie ? getContentReleaseDate(movie) : '';
   const year = movie ? getContentYear(movie) : 'N/A';
   const contentType = movie ? getContentTypeLabel(movie) : 'Movie';
   const isSeries = movie ? isTvLikeContent(movie) : false;
-  const isLiked = movie ? isFavorite(movie.id) : false;
-  const isInList = movie ? isWatchLater(movie.id) : false;
+  const isLiked = movie ? hasLikedItem(movie) : false;
+  const isInQueue = movie ? hasQueuedItem(movie) : false;
 
   const availableSeasons = useMemo(
     () => (tvDetails?.seasons ?? []).filter((season) => season.season_number > 0 && season.episode_count > 0),
@@ -85,10 +92,21 @@ export default function ModernMovieDetailsModal({
   const effectiveSeason = selectedSeasonData?.season_number ?? selectedSeason;
   const effectiveEpisode = Math.min(selectedEpisode, maxEpisode);
   const currentVideoUrl = movie
-    ? playerUrl || (isPlaying ? getVidsrcUrl(movie, effectiveSeason, effectiveEpisode) : null)
+    ? (
+        isSeries
+          ? playerUrl || (isPlaying ? getVidsrcUrl(movie, effectiveSeason, effectiveEpisode, currentSource) : null)
+          : playerUrl || (isPlaying ? getVidsrcUrl(movie, 1, 1, currentSource) : null)
+      )
     : null;
   const heroImagePath = isSeries && episodeDetails?.still_path ? episodeDetails.still_path : movie?.backdrop_path;
   const summaryText = isSeries ? episodeDetails?.overview || movie?.overview || '' : movie?.overview || '';
+  const downloadTargetUrl = movie
+    ? (
+        isSeries
+          ? getVidsrcUrl(movie, effectiveSeason, effectiveEpisode, currentSource)
+          : getVidsrcUrl(movie, 1, 1, currentSource)
+      )
+    : null;
 
   useEffect(() => {
     if (!movie) return;
@@ -98,6 +116,7 @@ export default function ModernMovieDetailsModal({
     setSelectedSeason(1);
     setSelectedEpisode(1);
     setIsEpisodeLoading(false);
+    setDownloadMessage(null);
 
     if (!isTvLikeContent(movie)) return;
 
@@ -156,19 +175,11 @@ export default function ModernMovieDetailsModal({
   if (!movie) return null;
 
   const handleLike = () => {
-    if (isLiked) {
-      removeFromFavorites(movie.id);
-      return;
-    }
-    addToFavorites(movie);
+    toggleLikedItem(movie);
   };
 
-  const handleWatchLater = () => {
-    if (isInList) {
-      removeFromWatchLater(movie.id);
-      return;
-    }
-    addToWatchLater(movie);
+  const handleQueue = () => {
+    toggleQueuedItem(movie);
   };
 
   const handleShare = async () => {
@@ -178,6 +189,49 @@ export default function ModernMovieDetailsModal({
         text: movie.overview,
         url: window.location.href,
       });
+    }
+  };
+
+  const buildDownloadName = () => {
+    const safeTitle = title.replace(/[<>:"/\\|?*\u0000-\u001F]/g, '').trim() || 'Movie';
+    if (isSeries) {
+      return `${safeTitle}-S${String(effectiveSeason).padStart(2, '0')}E${String(effectiveEpisode).padStart(2, '0')}-MovieNight.mp4`;
+    }
+    return `${safeTitle}-MovieNight.mp4`;
+  };
+
+  const triggerBrowserDownload = (url: string, fileName: string) => {
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = fileName;
+    link.target = '_blank';
+    link.rel = 'noreferrer';
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+  };
+
+  const handleDownload = async () => {
+    if (!downloadTargetUrl) return;
+
+    setDownloadMessage('Preparing your download...');
+    const fileName = buildDownloadName();
+
+    try {
+      const response = await fetch(downloadTargetUrl);
+      if (!response.ok) {
+        throw new Error(`Download request failed with ${response.status}`);
+      }
+
+      const blob = await response.blob();
+      const blobUrl = URL.createObjectURL(blob);
+      triggerBrowserDownload(blobUrl, fileName);
+      window.setTimeout(() => URL.revokeObjectURL(blobUrl), 1000);
+      setDownloadMessage(`Download started as ${fileName}.`);
+    } catch (error) {
+      console.error('Direct download fallback triggered:', error);
+      triggerBrowserDownload(downloadTargetUrl, fileName);
+      setDownloadMessage('The source did not expose a direct file, so we opened the active stream source instead.');
     }
   };
 
@@ -214,6 +268,26 @@ export default function ModernMovieDetailsModal({
     }
   };
 
+  const handlePlayClick = () => {
+    if (isSeries) {
+      onPlay(effectiveSeason, effectiveEpisode);
+      return;
+    }
+
+    onPlay();
+  };
+
+  const handleSourceChange = (source: VideoSource) => {
+    if (source === currentSource) return;
+
+    if (isSeries) {
+      onSourceChange(source, effectiveSeason, effectiveEpisode);
+      return;
+    }
+
+    onSourceChange(source);
+  };
+
   return (
     <AnimatePresence>
       <div className="fixed inset-0 z-[1000] bg-black/90 backdrop-blur-sm">
@@ -224,7 +298,7 @@ export default function ModernMovieDetailsModal({
           transition={{ duration: 0.25 }}
           className="flex h-full flex-col overflow-y-auto bg-black"
         >
-          <nav className="fixed left-0 right-0 top-0 z-[1002] flex items-center gap-4 bg-black/80 px-4 py-3 backdrop-blur-md sm:px-6">
+          <div className="fixed left-4 top-4 z-[1002] flex items-center gap-3 rounded-full border border-white/10 bg-black/70 px-3 py-2 shadow-xl backdrop-blur-md sm:left-6 sm:top-6">
             <button
               onClick={onClose}
               className="flex h-10 w-10 items-center justify-center rounded-full bg-white/10 transition-colors hover:bg-white/20"
@@ -232,28 +306,29 @@ export default function ModernMovieDetailsModal({
             >
               <X className="h-5 w-5 text-white" />
             </button>
-            <div className="min-w-0">
-              <h1 className="truncate text-lg font-semibold text-white">{title}</h1>
-              <p className="text-xs text-gray-400">{contentType}</p>
+            <div className="min-w-0 pr-2">
+              <h1 className="truncate text-sm font-semibold text-white sm:text-base">{title}</h1>
+              <p className="text-[11px] text-gray-400">{contentType}</p>
             </div>
-          </nav>
+          </div>
 
-          <div className="relative mt-16 min-h-[48vh] bg-black sm:min-h-[60vh]">
+          <div className="relative mt-16 mb-6 min-h-[48vh] bg-black pb-6 sm:mb-8 sm:min-h-[60vh] sm:pb-8">
             {isPlaying && currentVideoUrl ? (
-              <div className="relative h-[48vh] w-full sm:h-[60vh] lg:h-[72vh]">
+              <div className="relative z-0 h-[48vh] w-full overflow-hidden rounded-b-[2rem] sm:h-[60vh] lg:h-[72vh]">
                 <iframe
                   key={currentVideoUrl}
                   src={currentVideoUrl}
                   className="h-full w-full border-0"
                   allowFullScreen
                   allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
+                  loading="eager"
                   title={`${title} player`}
                   referrerPolicy="strict-origin-when-cross-origin"
                   onLoad={onPlayerReady}
                 />
               </div>
             ) : (
-              <div className="relative h-[48vh] w-full sm:h-[60vh] lg:h-[72vh]">
+              <div className="relative z-0 h-[48vh] w-full overflow-hidden rounded-b-[2rem] sm:h-[60vh] lg:h-[72vh]">
                 <img src={getImageUrl(heroImagePath || movie.backdrop_path, 'original')} alt={title} className="h-full w-full object-cover" />
                 <div className="absolute inset-0 bg-gradient-to-t from-black via-black/50 to-black/60" />
 
@@ -304,7 +379,7 @@ export default function ModernMovieDetailsModal({
                     <motion.button
                       whileHover={{ scale: 1.08 }}
                       whileTap={{ scale: 0.95 }}
-                      onClick={onPlay}
+                      onClick={handlePlayClick}
                       disabled={isPlayerLoading}
                       className="flex h-20 w-20 items-center justify-center rounded-full bg-white text-black shadow-2xl transition-all hover:bg-gray-100 disabled:opacity-50 sm:h-24 sm:w-24"
                     >
@@ -312,47 +387,7 @@ export default function ModernMovieDetailsModal({
                     </motion.button>
                   </div>
 
-                  <div className="max-w-2xl">
-                    <div className="flex flex-wrap items-center gap-3">
-                      <button
-                        onClick={onPlay}
-                        className="rounded-xl bg-white px-5 py-3 font-semibold text-black transition-colors hover:bg-gray-100"
-                      >
-                        {isSeries ? `Play S${effectiveSeason}E${effectiveEpisode}` : 'Play Now'}
-                      </button>
-                      <button
-                        onClick={handleWatchLater}
-                        className={`rounded-xl border px-4 py-3 transition-colors ${
-                          isInList ? 'border-green-500 bg-green-600/20 text-green-300' : 'border-white/20 bg-white/10 text-white hover:bg-white/20'
-                        }`}
-                      >
-                        <span className="inline-flex items-center gap-2">
-                          <Clock className="h-4 w-4" />
-                          {isInList ? 'Saved' : 'Watch Later'}
-                        </span>
-                      </button>
-                      <button
-                        onClick={handleLike}
-                        className={`rounded-xl border px-4 py-3 transition-colors ${
-                          isLiked ? 'border-red-500 bg-red-600/20 text-red-300' : 'border-white/20 bg-white/10 text-white hover:bg-white/20'
-                        }`}
-                      >
-                        <span className="inline-flex items-center gap-2">
-                          <Heart className={`h-4 w-4 ${isLiked ? 'fill-current' : ''}`} />
-                          {isLiked ? 'Liked' : 'Like'}
-                        </span>
-                      </button>
-                      <button
-                        onClick={() => void handleShare()}
-                        className="rounded-xl border border-white/20 bg-white/10 px-4 py-3 text-white transition-colors hover:bg-white/20"
-                      >
-                        <span className="inline-flex items-center gap-2">
-                          <Share2 className="h-4 w-4" />
-                          Share
-                        </span>
-                      </button>
-                    </div>
-                  </div>
+                  <div className="max-w-2xl" />
                 </div>
               </div>
             )}
@@ -368,9 +403,77 @@ export default function ModernMovieDetailsModal({
             </AnimatePresence>
           </div>
 
-          <div className="border-t border-white/10 bg-black">
+          <div className="relative z-10 border-t border-white/10 bg-black">
             <div className="grid gap-8 px-4 py-6 sm:px-6 lg:grid-cols-[minmax(0,1fr)] lg:px-8">
-              <div className="space-y-6">
+              <div className="flex flex-col gap-5">
+                <div className="relative z-20 rounded-2xl border border-white/10 bg-white/5 p-4">
+                  <div className="flex flex-col gap-5">
+                    <div className="flex flex-wrap items-center gap-3">
+                    <button
+                      onClick={handlePlayClick}
+                      className="rounded-xl bg-white/12 px-5 py-3 font-semibold text-white transition-colors hover:bg-white/20"
+                    >
+                      {isSeries ? `Play S${effectiveSeason}E${effectiveEpisode}` : 'Play Now'}
+                    </button>
+                    <button
+                      onClick={handleQueue}
+                      className={`rounded-xl border px-4 py-3 transition-colors ${
+                        isInQueue ? 'border-green-500 bg-green-600/20 text-white' : 'border-white/20 bg-white/10 text-gray-100 hover:bg-white/20'
+                      }`}
+                    >
+                      <span className="inline-flex items-center gap-2">
+                        <Clock className="h-4 w-4" />
+                        {isInQueue ? 'Queued' : 'Queue'}
+                      </span>
+                    </button>
+                    <button
+                      onClick={handleLike}
+                      className={`rounded-xl border px-4 py-3 transition-colors ${
+                        isLiked ? 'border-red-500 bg-red-600/20 text-white' : 'border-white/20 bg-white/10 text-gray-100 hover:bg-white/20'
+                      }`}
+                    >
+                      <span className="inline-flex items-center gap-2">
+                        <Heart className={`h-4 w-4 ${isLiked ? 'fill-current' : ''}`} />
+                        {isLiked ? 'Liked' : 'Like'}
+                      </span>
+                    </button>
+                    <button
+                      onClick={() => void handleShare()}
+                      className="rounded-xl border border-white/20 bg-white/10 px-4 py-3 text-white transition-colors hover:bg-white/20"
+                    >
+                      <span className="inline-flex items-center gap-2">
+                        <Share2 className="h-4 w-4" />
+                        Share
+                      </span>
+                    </button>
+                    <button
+                      onClick={() => void handleDownload()}
+                      className="rounded-xl border border-white/20 bg-white/10 px-4 py-3 text-white transition-colors hover:bg-white/20"
+                    >
+                      <span className="inline-flex items-center gap-2">
+                        <Download className="h-4 w-4" />
+                        Download
+                      </span>
+                    </button>
+                    </div>
+                  </div>
+                  {downloadMessage && <p className="mt-3 text-sm text-gray-300">{downloadMessage}</p>}
+                </div>
+
+                <div className="rounded-2xl border border-white/10 bg-white/5 p-4">
+                  <div className="mb-3">
+                    <h3 className="text-base font-semibold text-white">Playback Source</h3>
+                    <p className="mt-1 text-sm text-gray-400">
+                      If one player opens to a black screen, switch to another source here and try again.
+                    </p>
+                  </div>
+                  <VideoSourceSelector
+                    currentSource={currentSource}
+                    onSourceChange={handleSourceChange}
+                    disabled={false}
+                  />
+                </div>
+
                 {isSeries && (
                   <div className="rounded-2xl border border-sky-500/20 bg-sky-500/10 p-4">
                     <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
@@ -451,7 +554,7 @@ export default function ModernMovieDetailsModal({
                         </span>
                       </button>
                       <button
-                        onClick={onPlay}
+                        onClick={handlePlayClick}
                         className="rounded-xl bg-sky-600 px-4 py-3 font-medium text-white transition-colors hover:bg-sky-500"
                       >
                         Play Selected Episode

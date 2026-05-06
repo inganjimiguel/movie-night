@@ -1,15 +1,15 @@
 import { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { motion } from 'motion/react';
-import { ArrowLeft, Grid, List, Play, Search, type LucideIcon } from 'lucide-react';
-import ModernMovieCard from './ModernMovieCard';
-import ModernMovieDetailsModal from './ModernMovieDetailsModal';
+import { ArrowLeft, Grid, List, Search, Star, type LucideIcon } from 'lucide-react';
 import {
   getContentReleaseDate,
   getContentTitle,
+  getContentTypeLabel,
+  getContentYear,
+  getImageUrl,
   type MovieData,
 } from '../../services/movieService';
-
-const PLAYER_READY_GRACE_MS = 1800;
 
 interface SavedContentPageProps {
   title: string;
@@ -33,6 +33,7 @@ const accentStyles = {
     border: 'focus:border-red-500',
     button: 'bg-red-600 hover:bg-red-700',
     selectedText: 'bg-red-600/20 text-red-300',
+    badge: 'bg-red-600/15 text-red-200 border-red-500/30',
   },
   green: {
     icon: 'text-green-500 fill-green-500',
@@ -40,6 +41,7 @@ const accentStyles = {
     border: 'focus:border-green-500',
     button: 'bg-green-600 hover:bg-green-700',
     selectedText: 'bg-green-600/20 text-green-300',
+    badge: 'bg-green-600/15 text-green-200 border-green-500/30',
   },
 } as const;
 
@@ -57,14 +59,10 @@ export default function SavedContentPage({
   noResultsLabel,
   navigateTo,
 }: SavedContentPageProps) {
+  const navigate = useNavigate();
   const [searchQuery, setSearchQuery] = useState('');
   const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid');
   const [sortBy, setSortBy] = useState<'title' | 'date' | 'rating'>('title');
-  const [selectedMovie, setSelectedMovie] = useState<MovieData | null>(null);
-  const [isPlaying, setIsPlaying] = useState(false);
-  const [isPlayerLoading, setIsPlayerLoading] = useState(false);
-  const [playerError, setPlayerError] = useState<string | null>(null);
-  const [playerUrl, setPlayerUrl] = useState<string | null>(null);
 
   const theme = accentStyles[accent];
 
@@ -94,41 +92,14 @@ export default function SavedContentPage({
     window.history.back();
   };
 
-  const openMovieDetails = (movie: MovieData, shouldAutoplay = false) => {
-    setSelectedMovie(movie);
-    setIsPlaying(false);
-    setPlayerUrl(null);
-    setPlayerError(null);
-    setIsPlayerLoading(false);
-
-    if (shouldAutoplay) {
-      setIsPlayerLoading(true);
-      setIsPlaying(true);
-      setPlayerUrl(null);
-    }
-  };
-
-  const closeMovieDetails = () => {
-    setSelectedMovie(null);
-    setIsPlaying(false);
-    setPlayerUrl(null);
-    setPlayerError(null);
-    setIsPlayerLoading(false);
-  };
-
-  const playMovie = () => {
-    if (!selectedMovie) return;
-
-    setPlayerError(null);
-    setIsPlayerLoading(true);
-    setPlayerUrl(null);
-    setIsPlaying(true);
-  };
-
-  const handlePlayerReady = () => {
-    window.setTimeout(() => {
-      setIsPlayerLoading(false);
-    }, PLAYER_READY_GRACE_MS);
+  const handleToMovie = (movie: MovieData) => {
+    window.scrollTo({ top: 0, behavior: 'auto' });
+    void navigate('/', {
+      state: {
+        selectedMovie: movie,
+        autoplay: false,
+      },
+    });
   };
 
   return (
@@ -235,52 +206,60 @@ export default function SavedContentPage({
             animate={{ opacity: 1, y: 0 }}
             className={
               viewMode === 'grid'
-                ? 'grid grid-cols-2 gap-3 pb-12 sm:grid-cols-3 sm:gap-6 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6'
-                : 'grid grid-cols-1 justify-items-center gap-5 pb-12 lg:grid-cols-2'
+                ? 'grid grid-cols-1 gap-5 pb-12 sm:grid-cols-2 xl:grid-cols-3'
+                : 'grid grid-cols-1 gap-5 pb-12 lg:grid-cols-2'
             }
           >
             {sortedItems.map((movie, index) => (
-              <motion.div
+              <motion.article
                 key={`${movie.media_type || 'movie'}-${movie.id}`}
                 initial={{ opacity: 0, y: 20 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ duration: 0.3, delay: index * 0.04 }}
-                className={viewMode === 'list' ? 'w-full max-w-[400px]' : ''}
+                className="overflow-hidden rounded-[28px] border border-white/10 bg-black/45 shadow-2xl shadow-black/25 backdrop-blur-xl"
               >
-                <div className="space-y-3">
-                  <ModernMovieCard
-                    movie={movie}
-                    layout={viewMode === 'grid' ? 'poster' : 'backdrop'}
-                    size="medium"
-                    onSelect={(item) => openMovieDetails(item)}
-                    autoPreview={false}
-                  />
-                  <button
-                    type="button"
-                    onClick={() => openMovieDetails(movie, true)}
-                    className={`flex w-full items-center justify-center gap-2 rounded-2xl px-4 py-3 text-sm font-semibold text-white transition-colors ${theme.button}`}
-                  >
-                    <Play className="h-4 w-4 fill-white" />
-                    Play Now
-                  </button>
+                <div className={viewMode === 'grid' ? '' : 'sm:flex'}>
+                  <div className={viewMode === 'grid' ? 'aspect-[16/9] w-full' : 'aspect-[3/4] w-full sm:w-[220px] sm:flex-shrink-0'}>
+                    <img
+                      src={getImageUrl(viewMode === 'grid' ? (movie.backdrop_path || movie.poster_path) : movie.poster_path || movie.backdrop_path, 'original')}
+                      alt={getContentTitle(movie)}
+                      className="h-full w-full object-cover"
+                      loading="lazy"
+                    />
+                  </div>
+
+                  <div className="flex flex-1 flex-col p-5">
+                    <div className="mb-3 flex flex-wrap items-center gap-2">
+                      <span className={`rounded-full border px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.18em] ${theme.badge}`}>
+                        {getContentTypeLabel(movie)}
+                      </span>
+                      <span className="text-sm text-gray-400">{getContentYear(movie)}</span>
+                      <span className="inline-flex items-center gap-1 text-sm text-gray-300">
+                        <Star className="h-4 w-4 fill-yellow-500 text-yellow-500" />
+                        {movie.vote_average.toFixed(1)}
+                      </span>
+                    </div>
+
+                    <h2 className="text-xl font-bold text-white">{getContentTitle(movie)}</h2>
+                    <p className="mt-3 flex-1 text-sm leading-6 text-gray-300">
+                      {movie.overview || 'No description available for this title yet.'}
+                    </p>
+
+                    <div className="mt-5">
+                      <button
+                        onClick={() => handleToMovie(movie)}
+                        className={`w-full rounded-2xl px-4 py-3 text-sm font-semibold text-white transition-colors shadow-lg ${theme.button}`}
+                      >
+                        To Movie
+                      </button>
+                    </div>
+                  </div>
                 </div>
-              </motion.div>
+              </motion.article>
             ))}
           </motion.div>
         )}
       </div>
-
-      <ModernMovieDetailsModal
-        movie={selectedMovie}
-        isPlaying={isPlaying}
-        isPlayerLoading={isPlayerLoading}
-        playerError={playerError}
-        playerUrl={playerUrl}
-        relatedMovies={sortedItems.slice(0, 6)}
-        onClose={closeMovieDetails}
-        onPlay={playMovie}
-        onPlayerReady={handlePlayerReady}
-      />
     </div>
   );
 }

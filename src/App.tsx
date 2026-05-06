@@ -1,13 +1,18 @@
 import { useEffect, useState } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
-import { ChevronDown, ChevronUp } from 'lucide-react';
-import { UserPreferencesProvider } from './contexts/UserPreferencesContext';
+import { ChevronDown, ChevronUp, Heart, Sparkles } from 'lucide-react';
+import { useLocation } from 'react-router-dom';
+import { MediaLibraryProvider } from './contexts/MediaLibraryContext';
 import AppRouter from './components/layout/AppRouter';
 import SEOHead from './components/seo/SEOHead';
+import DonationModal from './components/payments/DonationModal';
 import Footer from './components/layout/Footer';
 
 export default function App() {
   console.log('App component rendering!');
+  const location = useLocation();
+  const isHomePage = location.pathname === '/';
+  const [isDonationModalOpen, setIsDonationModalOpen] = useState(false);
   const [showScrollUpButton, setShowScrollUpButton] = useState(false);
   const [showScrollDownButton, setShowScrollDownButton] = useState(true);
 
@@ -41,6 +46,33 @@ export default function App() {
   return (
     <>
       <SEOHead />
+
+      <motion.button
+        initial={{ opacity: 0, y: -16, scale: 0.96 }}
+        animate={{ opacity: 1, y: 0, scale: 1 }}
+        whileHover={{ scale: 1.03, y: -2 }}
+        whileTap={{ scale: 0.97 }}
+        className="group fixed right-3 top-[calc(env(safe-area-inset-top,0px)+84px)] z-[180] flex max-w-[calc(100vw-24px)] items-center gap-3 overflow-hidden rounded-full border border-red-200/20 bg-[linear-gradient(135deg,rgba(220,38,38,0.96),rgba(127,29,29,0.96))] px-3 py-2 text-left shadow-[0_16px_40px_rgba(127,29,29,0.35)] backdrop-blur-xl sm:right-5 sm:px-4 sm:py-3"
+        onClick={() => setIsDonationModalOpen(true)}
+        aria-label="Open support us popup"
+      >
+        <span className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_top,rgba(255,255,255,0.26),transparent_52%)] opacity-80" />
+        <span className="relative flex h-10 w-10 items-center justify-center rounded-full border border-white/20 bg-white/14 shadow-inner shadow-white/10">
+          <Heart className="h-5 w-5 fill-white text-white" />
+        </span>
+        <span className="relative flex min-w-0 flex-col">
+          <span className="flex items-center gap-1 text-[10px] font-semibold uppercase tracking-[0.28em] text-red-100/80">
+            <Sparkles className="h-3 w-3" />
+            Keep it rolling
+          </span>
+          <span className="truncate text-sm font-extrabold text-white sm:text-base">Support us</span>
+        </span>
+      </motion.button>
+
+      <DonationModal
+        isOpen={isDonationModalOpen}
+        onClose={() => setIsDonationModalOpen(false)}
+      />
 
       <AnimatePresence>
         {(showScrollUpButton || showScrollDownButton) && (
@@ -79,12 +111,13 @@ export default function App() {
         )}
       </AnimatePresence>
 
-      <UserPreferencesProvider>
+      <MediaLibraryProvider>
         <div className="min-h-screen flex flex-col">
+          {isHomePage && null}
           <AppRouter />
           <Footer />
         </div>
-      </UserPreferencesProvider>
+      </MediaLibraryProvider>
     </>
   );
 }

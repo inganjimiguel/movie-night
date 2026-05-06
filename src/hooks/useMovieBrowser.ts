@@ -1,11 +1,23 @@
-import {useEffect, useState, type FormEvent} from 'react';
-import {getTrendingMovies, searchMovies, getTrailerUrl, getVidsrcUrl, type MovieData} from '../services/movieService';
+import {useEffect, useRef, useState, type FormEvent} from 'react';
+import {
+  DEFAULT_VIDEO_SOURCE,
+  getTrendingMovies,
+  hydrateContentForDetails,
+  searchAllContent,
+  getTrailerUrl,
+  getVidsrcUrl,
+  getVideoSourceName,
+  type ContentData,
+  type MovieData,
+  type VideoSource
+} from '../services/movieService';
 
 const PLAYER_READY_GRACE_MS = 1800;
+const PLAYER_LOAD_TIMEOUT_MS = 12000;
 
 export default function useMovieBrowser() {
   const [movies, setMovies] = useState<MovieData[]>([]);
-  const [searchResults, setSearchResults] = useState<MovieData[]>([]);
+  const [searchResults, setSearchResults] = useState<ContentData[]>([]);
   const [featured, setFeatured] = useState<MovieData | null>(null);
   const [selectedMovie, setSelectedMovie] = useState<MovieData | null>(null);
   const [isPlaying, setIsPlaying] = useState(false);
@@ -16,6 +28,15 @@ export default function useMovieBrowser() {
   const [isMuted, setIsMuted] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
   const [isSearching, setIsSearching] = useState(false);
+  const [currentSource, setCurrentSource] = useState<VideoSource>(DEFAULT_VIDEO_SOURCE);
+  const playerTimeoutRef = useRef<number | null>(null);
+
+  const clearPlayerTimeout = () => {
+    if (playerTimeoutRef.current) {
+      window.clearTimeout(playerTimeoutRef.current);
+      playerTimeoutRef.current = null;
+    }
+  };
 
   useEffect(() => {
     const handleScroll = () => {
@@ -61,30 +82,43 @@ export default function useMovieBrowser() {
     }
 
     setIsSearching(true);
-    const results = await searchMovies(searchQuery);
+    const results = await searchAllContent(searchQuery);
     setSearchResults(results);
   };
 
-  const playMovie = async (movie: MovieData) => {
+  const playMovie = async (movie: MovieData, season = 1, episode = 1, source: VideoSource = currentSource) => {
+    clearPlayerTimeout();
     setPlayerError(null);
     setIsPlayerLoading(true);
-
-    const vidsrcUrl = getVidsrcUrl(movie);
+    const hydratedMovie = await hydrateContentForDetails(movie);
+    setSelectedMovie(hydratedMovie);
+    const vidsrcUrl = getVidsrcUrl(hydratedMovie, season, episode, source);
     setPlayerUrl(vidsrcUrl);
     setIsPlaying(true);
+    playerTimeoutRef.current = window.setTimeout(() => {
+      setIsPlayerLoading(false);
+      setPlayerError(`Playback is taking longer than expected on ${getVideoSourceName(source)}. Try switching sources.`);
+    }, PLAYER_LOAD_TIMEOUT_MS);
   };
 
   const handlePlayerReady = () => {
+    clearPlayerTimeout();
     window.setTimeout(() => {
       setIsPlayerLoading(false);
     }, PLAYER_READY_GRACE_MS);
   };
 
   const openMovieDetails = (movie: MovieData, shouldAutoplay = false) => {
+    clearPlayerTimeout();
     setSelectedMovie(movie);
     setIsPlaying(false);
     setPlayerUrl(null);
     setPlayerError(null);
+    setIsPlayerLoading(false);
+
+    void hydrateContentForDetails(movie).then((hydratedMovie) => {
+      setSelectedMovie((currentMovie) => (currentMovie?.id === movie.id ? hydratedMovie : currentMovie));
+    });
 
     if (shouldAutoplay) {
       // Set loading state immediately for instant feedback
@@ -94,6 +128,7 @@ export default function useMovieBrowser() {
   };
 
   const closeMovieDetails = () => {
+    clearPlayerTimeout();
     setSelectedMovie(null);
     setIsPlaying(false);
     setPlayerUrl(null);
@@ -107,8 +142,11 @@ export default function useMovieBrowser() {
     setSearchResults([]);
   };
 
+  useEffect(() => () => clearPlayerTimeout(), []);
+
   return {
     featured,
+    currentSource,
     isMuted,
     isPlaying,
     isPlayerLoading,
@@ -127,6 +165,7 @@ export default function useMovieBrowser() {
     resetToBrowse,
     handlePlayerReady,
     setIsMuted,
+    setCurrentSource,
     setSearchQuery,
     setSearchResults,
     setIsSearching,

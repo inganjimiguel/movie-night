@@ -20,7 +20,7 @@ import {
   Star
 } from 'lucide-react';
 import type { FormEvent } from 'react';
-import { useUserPreferences } from '../../contexts/UserPreferencesContext';
+import { useMediaLibrary } from '../../contexts/MediaLibraryContext';
 
 interface ResponsiveNavigationProps {
   isScrolled: boolean;
@@ -55,7 +55,7 @@ export default function ResponsiveNavigation({
   const [isUserMenuOpen, setIsUserMenuOpen] = useState(false);
   const [isNotificationOpen, setIsNotificationOpen] = useState(false);
   
-  const { favorites, watchLater } = useUserPreferences();
+  const { likedItems, queuedItems } = useMediaLibrary();
   
   const userMenuRef = useRef<HTMLDivElement>(null);
   const notificationRef = useRef<HTMLDivElement>(null);
@@ -176,7 +176,7 @@ export default function ResponsiveNavigation({
                 className="relative p-2 rounded-full hover:bg-white/10 transition-colors"
               >
                 <Bell className="w-5 h-5 text-white" />
-                {favorites.length > 0 && (
+                {likedItems.length > 0 && (
                   <motion.div
                     initial={{ scale: 0 }}
                     animate={{ scale: 1 }}
@@ -197,7 +197,7 @@ export default function ResponsiveNavigation({
                       <h3 className="text-white font-semibold">Notifications</h3>
                     </div>
                     <div className="max-h-96 overflow-y-auto">
-                      {favorites.length > 0 && (
+                      {likedItems.length > 0 && (
                         <div className="p-4 hover:bg-white/5 transition-colors cursor-pointer">
                           <div className="flex items-start gap-3">
                             <div className="w-8 h-8 bg-red-600/20 rounded-full flex items-center justify-center flex-shrink-0">
@@ -205,12 +205,12 @@ export default function ResponsiveNavigation({
                             </div>
                             <div className="flex-1">
                               <p className="text-white text-sm font-medium">New Favorites</p>
-                              <p className="text-gray-400 text-xs">You have {favorites.length} movie{favorites.length > 1 ? 's' : ''} in your favorites</p>
+                              <p className="text-gray-400 text-xs">You have {likedItems.length} title{likedItems.length > 1 ? 's' : ''} in liked</p>
                             </div>
                           </div>
                         </div>
                       )}
-                      {watchLater.length > 0 && (
+                      {queuedItems.length > 0 && (
                         <div className="p-4 hover:bg-white/5 transition-colors cursor-pointer">
                           <div className="flex items-start gap-3">
                             <div className="w-8 h-8 bg-green-600/20 rounded-full flex items-center justify-center flex-shrink-0">
@@ -218,12 +218,12 @@ export default function ResponsiveNavigation({
                             </div>
                             <div className="flex-1">
                               <p className="text-white text-sm font-medium">Watch Later</p>
-                              <p className="text-gray-400 text-xs">{watchLater.length} movie{watchLater.length > 1 ? 's' : ''} to watch</p>
+                              <p className="text-gray-400 text-xs">{queuedItems.length} title{queuedItems.length > 1 ? 's' : ''} in queue</p>
                             </div>
                           </div>
                         </div>
                       )}
-                      {favorites.length === 0 && watchLater.length === 0 && (
+                      {likedItems.length === 0 && queuedItems.length === 0 && (
                         <div className="p-8 text-center">
                           <div className="w-12 h-12 bg-gray-800 rounded-full flex items-center justify-center mx-auto mb-3">
                             <Bell className="w-6 h-6 text-gray-600" />
@@ -274,29 +274,29 @@ export default function ResponsiveNavigation({
                     <div className="py-2">
                       <button
                         onClick={() => {
-                          if (navigateTo) navigateTo('/favorites');
+                          if (navigateTo) navigateTo('/liked');
                           setIsUserMenuOpen(false);
                         }}
                         className="w-full flex items-center gap-3 px-4 py-3 text-left hover:bg-white/5 transition-colors"
                       >
                         <Heart className="w-4 h-4 text-red-600" />
-                        <span className="text-white text-sm">My Favorites</span>
-                        {favorites.length > 0 && (
-                          <span className="ml-auto text-gray-400 text-xs">{favorites.length}</span>
+                        <span className="text-white text-sm">Liked</span>
+                        {likedItems.length > 0 && (
+                          <span className="ml-auto text-gray-400 text-xs">{likedItems.length}</span>
                         )}
                       </button>
                       
                       <button
                         onClick={() => {
-                          if (navigateTo) navigateTo('/watchlater');
+                          if (navigateTo) navigateTo('/queue');
                           setIsUserMenuOpen(false);
                         }}
                         className="w-full flex items-center gap-3 px-4 py-3 text-left hover:bg-white/5 transition-colors"
                       >
                         <Clock className="w-4 h-4 text-green-600" />
-                        <span className="text-white text-sm">Watch Later</span>
-                        {watchLater.length > 0 && (
-                          <span className="ml-auto text-gray-400 text-xs">{watchLater.length}</span>
+                        <span className="text-white text-sm">Queue</span>
+                        {queuedItems.length > 0 && (
+                          <span className="ml-auto text-gray-400 text-xs">{queuedItems.length}</span>
                         )}
                       </button>
                       

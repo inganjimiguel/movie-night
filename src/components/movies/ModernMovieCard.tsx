@@ -11,7 +11,7 @@ import {
   getTrailerUrl,
   type MovieData,
 } from '../../services/movieService';
-import { useUserPreferences } from '../../contexts/UserPreferencesContext';
+import { useMediaLibrary } from '../../contexts/MediaLibraryContext';
 
 interface ModernMovieCardProps {
   movie: MovieData;
@@ -77,7 +77,7 @@ export default function ModernMovieCard({
   const hideTimerRef = useRef<number | null>(null);
   const previewRef = useRef<HTMLDivElement | null>(null);
 
-  const { addToFavorites, addToWatchLater, isFavorite, isWatchLater } = useUserPreferences();
+  const { toggleLikedItem, toggleQueuedItem, hasLikedItem, hasQueuedItem } = useMediaLibrary();
 
   const config = sizeConfig[size];
   const imagePath = layout === 'poster' ? movie.poster_path : movie.backdrop_path;
@@ -85,8 +85,8 @@ export default function ModernMovieCard({
   const year = getContentYear(movie);
   const contentType = getContentTypeLabel(movie);
   const ContentTypeIcon = contentTypeStyles[contentType].icon;
-  const liked = isFavorite(movie.id);
-  const inWatchLater = isWatchLater(movie.id);
+  const liked = hasLikedItem(movie);
+  const inQueue = hasQueuedItem(movie);
 
   const clearTimers = () => {
     if (hoverTimerRef.current) {
@@ -288,7 +288,7 @@ export default function ModernMovieCard({
               animate={{ opacity: 1, y: 0, scale: 1 }}
               exit={{ opacity: 0, y: 10, scale: 0.96 }}
               transition={{ duration: 0.2 }}
-              className="fixed z-[1200] overflow-hidden rounded-3xl border border-white/10 bg-black/88 shadow-2xl shadow-black/70 backdrop-blur-xl"
+              className="fixed z-[2200] overflow-hidden rounded-3xl border border-white/10 bg-black/88 shadow-2xl shadow-black/70 backdrop-blur-xl"
               style={{ top: previewRect.top, left: previewRect.left, width: previewRect.width }}
               onMouseEnter={handlePointerEnter}
               onMouseLeave={handlePointerLeave}
@@ -347,7 +347,7 @@ export default function ModernMovieCard({
                     type="button"
                     onClick={(event) => {
                       event.stopPropagation();
-                      addToFavorites(movie);
+                      toggleLikedItem(movie);
                     }}
                     className={`rounded-xl border px-4 py-2.5 text-sm transition-colors ${
                       liked ? 'border-red-500 bg-red-600/20 text-red-300' : 'border-white/15 bg-white/5 text-white hover:bg-white/10'
@@ -362,15 +362,15 @@ export default function ModernMovieCard({
                     type="button"
                     onClick={(event) => {
                       event.stopPropagation();
-                      addToWatchLater(movie);
+                      toggleQueuedItem(movie);
                     }}
                     className={`rounded-xl border px-4 py-2.5 text-sm transition-colors ${
-                      inWatchLater ? 'border-green-500 bg-green-600/20 text-green-300' : 'border-white/15 bg-white/5 text-white hover:bg-white/10'
+                      inQueue ? 'border-green-500 bg-green-600/20 text-green-300' : 'border-white/15 bg-white/5 text-white hover:bg-white/10'
                     }`}
                   >
                     <span className="inline-flex items-center gap-2">
                       <Clock className="h-4 w-4" />
-                      {inWatchLater ? 'Saved' : 'Watch Later'}
+                      {inQueue ? 'Queued' : 'Queue'}
                     </span>
                   </button>
                 </div>
