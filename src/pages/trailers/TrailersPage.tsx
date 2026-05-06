@@ -169,7 +169,7 @@ export default function TrailersPage({ navigateTo }: TrailersPageProps = {}) {
         </button>
         <div className="text-center">
           <Loader2 className="mx-auto mb-4 h-12 w-12 animate-spin text-red-600" />
-          <p className="text-xl text-white">Loading upcoming trailers...</p>
+          <p className="text-xl text-white">Loading trailers...</p>
         </div>
       </div>
     );
@@ -184,7 +184,7 @@ export default function TrailersPage({ navigateTo }: TrailersPageProps = {}) {
         >
           <X className="h-5 w-5 text-white" />
         </button>
-        <p className="text-xl text-white">No upcoming releases available right now.</p>
+        <p className="text-xl text-white">No trailers available right now.</p>
       </div>
     );
   }
@@ -199,7 +199,7 @@ export default function TrailersPage({ navigateTo }: TrailersPageProps = {}) {
       </button>
 
       <div className="pointer-events-none fixed left-4 top-4 z-40 rounded-full border border-white/10 bg-black/55 px-4 py-2 text-sm font-semibold text-white backdrop-blur-md">
-        Upcoming
+        Trailers
       </div>
 
       <div
