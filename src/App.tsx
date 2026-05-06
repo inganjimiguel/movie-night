@@ -1,17 +1,18 @@
-import { useEffect, useState } from 'react';
+import { lazy, Suspense, useEffect, useState } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { ChevronDown, ChevronUp, Heart, Sparkles } from 'lucide-react';
 import { useLocation } from 'react-router-dom';
 import { MediaLibraryProvider } from './contexts/MediaLibraryContext';
 import AppRouter from './components/layout/AppRouter';
 import SEOHead from './components/seo/SEOHead';
-import DonationModal from './components/payments/DonationModal';
 import Footer from './components/layout/Footer';
 
+const DonationModal = lazy(() => import('./components/payments/DonationModal'));
+
 export default function App() {
-  console.log('App component rendering!');
   const location = useLocation();
   const isHomePage = location.pathname === '/';
+  const pageSeo = getPageSeo(location.pathname);
   const [isDonationModalOpen, setIsDonationModalOpen] = useState(false);
   const [showScrollUpButton, setShowScrollUpButton] = useState(false);
   const [showScrollDownButton, setShowScrollDownButton] = useState(true);
@@ -45,7 +46,12 @@ export default function App() {
 
   return (
     <>
-      <SEOHead />
+      <SEOHead
+        title={pageSeo.title}
+        description={pageSeo.description}
+        keywords={pageSeo.keywords}
+        url={`https://movienight.com${location.pathname}`}
+      />
 
       <motion.button
         initial={{ opacity: 0, y: -16, scale: 0.96 }}
@@ -69,10 +75,14 @@ export default function App() {
         </span>
       </motion.button>
 
-      <DonationModal
-        isOpen={isDonationModalOpen}
-        onClose={() => setIsDonationModalOpen(false)}
-      />
+      {isDonationModalOpen && (
+        <Suspense fallback={null}>
+          <DonationModal
+            isOpen={isDonationModalOpen}
+            onClose={() => setIsDonationModalOpen(false)}
+          />
+        </Suspense>
+      )}
 
       <AnimatePresence>
         {(showScrollUpButton || showScrollDownButton) && (
@@ -120,4 +130,86 @@ export default function App() {
       </MediaLibraryProvider>
     </>
   );
+}
+
+function getPageSeo(pathname: string) {
+  if (pathname.startsWith('/movies/')) {
+    const title = toTitleFromSlug(pathname.replace('/movies/', ''));
+    return {
+      title: `Watch ${title} | Movie Night`,
+      description: `Watch ${title} on Movie Night with cast details, genres, ratings, similar titles, and HD playback options.`,
+      keywords: `${title}, watch ${title}, Movie Night movie details, movie cast, similar movies`
+    };
+  }
+
+  if (pathname.startsWith('/genres/')) {
+    const genre = toTitleFromSlug(pathname.replace('/genres/', ''));
+    return {
+      title: `${genre} Movies and Shows | Movie Night`,
+      description: `Browse ${genre.toLowerCase()} movies, TV shows, and animations on Movie Night with clean genre pages and curated streaming picks.`,
+      keywords: `${genre} movies, ${genre} shows, stream ${genre.toLowerCase()}, Movie Night genres`
+    };
+  }
+
+  if (pathname.startsWith('/lists/')) {
+    const listTitle = toTitleFromSlug(pathname.replace('/lists/', ''));
+    return {
+      title: `${listTitle} | Movie Night`,
+      description: `Explore the ${listTitle.toLowerCase()} list on Movie Night with curated recommendations and quick watch ideas.`,
+      keywords: `${listTitle}, movie recommendations, curated movie lists, Movie Night lists`
+    };
+  }
+
+  switch (pathname) {
+    case '/liked':
+      return {
+        title: 'Liked Movies and Shows | Movie Night',
+        description: 'Review the movies, TV shows, and animations you liked on Movie Night so your next watch is easy to find.',
+        keywords: 'liked movies, saved shows, favorite streaming titles, Movie Night liked titles'
+      };
+    case '/queue':
+      return {
+        title: 'Movie Watch Queue | Movie Night',
+        description: 'Build a personal queue of movies, TV shows, and animations to watch later on Movie Night.',
+        keywords: 'movie queue, watch later movies, saved TV shows, Movie Night queue'
+      };
+    case '/tv-shows':
+      return {
+        title: 'Watch TV Shows Online | Movie Night',
+        description: 'Browse TV shows by genre, rating, and release date on Movie Night, from drama and comedy to sci-fi and adventure.',
+        keywords: 'watch tv shows online, stream series, browse TV shows, Movie Night TV'
+      };
+    case '/trailers':
+      return {
+        title: 'Movie Trailers and New Releases | Movie Night',
+        description: 'Watch upcoming movie and TV trailers, preview new releases, and find what to stream next on Movie Night.',
+        keywords: 'movie trailers, new releases, upcoming movies, TV trailers, Movie Night trailers'
+      };
+    case '/movies':
+      return {
+        title: 'Browse Movies Online | Movie Night',
+        description: 'Browse the Movie Night movie collection and discover popular films, trending picks, and HD streaming options.',
+        keywords: 'browse movies online, popular movies, streaming movies, Movie Night movies'
+      };
+    case '/new':
+      return {
+        title: 'New and Popular Movies | Movie Night',
+        description: 'Discover new and popular movies, shows, and animations currently trending on Movie Night.',
+        keywords: 'new movies, popular movies, trending shows, Movie Night new releases'
+      };
+    default:
+      return {
+        title: 'Watch Movie Night Picks | Movie Night',
+        description: 'Find hand-picked movies, TV shows, animations, new releases, and trailers to stream on Movie Night.',
+        keywords: 'watch movies online, movie night picks, TV shows online, animation streaming, movie trailers'
+      };
+  }
+}
+
+function toTitleFromSlug(slug: string) {
+  return slug
+    .split('-')
+    .filter(Boolean)
+    .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
+    .join(' ');
 }

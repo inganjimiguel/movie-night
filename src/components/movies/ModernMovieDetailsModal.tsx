@@ -22,6 +22,7 @@ import {
   getContentTitle,
   getContentTypeLabel,
   getContentYear,
+  getEditorialContentDetails,
   getGenreNames,
   getImageUrl,
   getTvEpisodeDetails,
@@ -29,6 +30,7 @@ import {
   getVidsrcUrl,
   isTvLikeContent,
   type MovieData,
+  type EditorialContentDetails,
   type TvEpisodeDetails,
   type TvShowDetails,
   type VideoSource,
@@ -66,6 +68,8 @@ export default function ModernMovieDetailsModal({
   const [selectedSeason, setSelectedSeason] = useState(1);
   const [selectedEpisode, setSelectedEpisode] = useState(1);
   const [isEpisodeLoading, setIsEpisodeLoading] = useState(false);
+  const [editorialDetails, setEditorialDetails] = useState<EditorialContentDetails | null>(null);
+  const [isEditorialLoading, setIsEditorialLoading] = useState(false);
   const [downloadMessage, setDownloadMessage] = useState<string | null>(null);
 
   const { hasLikedItem, toggleLikedItem, hasQueuedItem, toggleQueuedItem } = useMediaLibrary();
@@ -100,6 +104,11 @@ export default function ModernMovieDetailsModal({
     : null;
   const heroImagePath = isSeries && episodeDetails?.still_path ? episodeDetails.still_path : movie?.backdrop_path;
   const summaryText = isSeries ? episodeDetails?.overview || movie?.overview || '' : movie?.overview || '';
+  const runtimeLabel = editorialDetails?.runtime ? `${editorialDetails.runtime} min` : isSeries ? 'Episode length varies' : 'HD stream';
+  const detailGenres = editorialDetails?.genres.length ? editorialDetails.genres.join(', ') : getGenreNames(movie?.genre_ids || []);
+  const crewHighlights = editorialDetails?.crew
+    .filter((person) => /director|creator|showrunner|screenplay|writer|producer/i.test(person.role))
+    .slice(0, 4);
   const downloadTargetUrl = movie
     ? (
         isSeries
@@ -111,16 +120,59 @@ export default function ModernMovieDetailsModal({
   useEffect(() => {
     if (!movie) return;
 
+    const previousTitle = document.title;
+    const previousDescription = document.querySelector('meta[name="description"]')?.getAttribute('content') || '';
+    const description = `Watch ${title}${year !== 'N/A' ? ` (${year})` : ''} on Movie Night with ${isSeries ? 'episode navigation' : 'HD playback'}, cast details, viewer notes, and similar ${isSeries ? 'TV shows' : 'movies'}.`;
+
+    document.title = `Watch ${title} | Movie Night`;
+
+    let metaDescription = document.querySelector('meta[name="description"]');
+    if (!metaDescription) {
+      metaDescription = document.createElement('meta');
+      metaDescription.setAttribute('name', 'description');
+      document.head.appendChild(metaDescription);
+    }
+    metaDescription.setAttribute('content', description);
+
+    const updateMetaTag = (name: string, content: string) => {
+      let meta = document.querySelector(`meta[property="${name}"]`) || document.querySelector(`meta[name="${name}"]`);
+      if (!meta) {
+        meta = document.createElement('meta');
+        meta.setAttribute(name.startsWith('og:') ? 'property' : 'name', name);
+        document.head.appendChild(meta);
+      }
+      meta.setAttribute('content', content);
+    };
+
+    updateMetaTag('og:title', `Watch ${title} | Movie Night`);
+    updateMetaTag('og:description', description);
+    updateMetaTag('twitter:title', `Watch ${title} | Movie Night`);
+    updateMetaTag('twitter:description', description);
+
     setTvDetails(null);
     setEpisodeDetails(null);
+    setEditorialDetails(null);
     setSelectedSeason(1);
     setSelectedEpisode(1);
     setIsEpisodeLoading(false);
+    setIsEditorialLoading(true);
     setDownloadMessage(null);
 
-    if (!isTvLikeContent(movie)) return;
-
     let cancelled = false;
+
+    void getEditorialContentDetails(movie).then((details) => {
+      if (cancelled) return;
+      setEditorialDetails(details);
+      setIsEditorialLoading(false);
+    });
+
+    if (!isTvLikeContent(movie)) {
+      return () => {
+        cancelled = true;
+        document.title = previousTitle;
+        metaDescription.setAttribute('content', previousDescription);
+      };
+    }
 
     void getTvShowDetails(movie.id).then((details) => {
       if (cancelled || !details) return;
@@ -134,8 +186,10 @@ export default function ModernMovieDetailsModal({
 
     return () => {
       cancelled = true;
+      document.title = previousTitle;
+      metaDescription.setAttribute('content', previousDescription);
     };
-  }, [movie]);
+  }, [movie, title, year, isSeries]);
 
   useEffect(() => {
     if (!selectedSeasonData) return;
@@ -160,6 +214,37 @@ export default function ModernMovieDetailsModal({
       cancelled = true;
     };
   }, [movie, isSeries, effectiveSeason, effectiveEpisode]);
+
+  useEffect(() => {
+    if (!movie) return;
+
+    const structuredData = buildContentStructuredData({
+      movie,
+      title,
+      description: editorialDetails?.editorialBlurb || summaryText || movie.overview,
+      releaseDate,
+      image: getImageUrl(movie.poster_path || movie.backdrop_path, 'original'),
+      url: window.location.href,
+      isSeries,
+      genres: editorialDetails?.genres.length ? editorialDetails.genres : getGenreNames(movie.genre_ids).split(', ').filter(Boolean),
+      cast: editorialDetails?.cast ?? [],
+      crew: editorialDetails?.crew ?? [],
+      runtime: editorialDetails?.runtime
+    });
+
+    let structuredScript = document.querySelector<HTMLScriptElement>('#movie-night-content-jsonld');
+    if (!structuredScript) {
+      structuredScript = document.createElement('script');
+      structuredScript.id = 'movie-night-content-jsonld';
+      structuredScript.type = 'application/ld+json';
+      document.head.appendChild(structuredScript);
+    }
+    structuredScript.textContent = JSON.stringify(structuredData);
+
+    return () => {
+      structuredScript?.remove();
+    };
+  }, [movie, title, editorialDetails, summaryText, releaseDate, isSeries]);
 
   useEffect(() => {
     const handleKeyDown = (event: KeyboardEvent) => {
@@ -298,7 +383,7 @@ export default function ModernMovieDetailsModal({
           transition={{ duration: 0.25 }}
           className="flex h-full flex-col overflow-y-auto bg-black"
         >
-          <div className="fixed left-4 top-4 z-[1002] flex items-center gap-3 rounded-full border border-white/10 bg-black/70 px-3 py-2 shadow-xl backdrop-blur-md sm:left-6 sm:top-6">
+          <div className="fixed left-3 right-3 top-3 z-[1002] flex max-w-[calc(100vw-24px)] items-center gap-3 rounded-full border border-white/10 bg-black/70 px-3 py-2 shadow-xl backdrop-blur-md sm:left-6 sm:right-auto sm:top-6 sm:max-w-[min(560px,calc(100vw-48px))]">
             <button
               onClick={onClose}
               className="flex h-10 w-10 items-center justify-center rounded-full bg-white/10 transition-colors hover:bg-white/20"
@@ -307,7 +392,7 @@ export default function ModernMovieDetailsModal({
               <X className="h-5 w-5 text-white" />
             </button>
             <div className="min-w-0 pr-2">
-              <h1 className="truncate text-sm font-semibold text-white sm:text-base">{title}</h1>
+              <p className="truncate text-sm font-semibold text-white sm:text-base">{title}</p>
               <p className="text-[11px] text-gray-400">{contentType}</p>
             </div>
           </div>
@@ -340,7 +425,7 @@ export default function ModernMovieDetailsModal({
                         <Badge text={contentType} className="bg-red-600/80 text-white" />
                         {isSeries && <Badge text={`S${effectiveSeason} • E${effectiveEpisode}`} className="bg-sky-600/80 text-white" />}
                       </div>
-                      <h1 className="text-3xl font-black text-white sm:text-4xl lg:text-6xl">{title}</h1>
+                      <h1 className="break-words text-2xl font-black leading-tight text-white sm:text-4xl lg:text-6xl">{title}</h1>
                       <div className="flex flex-wrap items-center gap-3 text-sm text-gray-200 sm:text-base">
                         <span className="inline-flex items-center gap-1">
                           <Star className="h-4 w-4 fill-yellow-500 text-yellow-500" />
@@ -408,16 +493,16 @@ export default function ModernMovieDetailsModal({
               <div className="flex flex-col gap-5">
                 <div className="relative z-20 rounded-2xl border border-white/10 bg-white/5 p-4">
                   <div className="flex flex-col gap-5">
-                    <div className="flex flex-wrap items-center gap-3">
+                    <div className="grid grid-cols-2 gap-3 sm:flex sm:flex-wrap sm:items-center">
                     <button
                       onClick={handlePlayClick}
-                      className="rounded-xl bg-white/12 px-5 py-3 font-semibold text-white transition-colors hover:bg-white/20"
+                      className="min-h-11 rounded-xl bg-white/12 px-4 py-3 text-sm font-semibold text-white transition-colors hover:bg-white/20 sm:px-5 sm:text-base"
                     >
                       {isSeries ? `Play S${effectiveSeason}E${effectiveEpisode}` : 'Play Now'}
                     </button>
                     <button
                       onClick={handleQueue}
-                      className={`rounded-xl border px-4 py-3 transition-colors ${
+                      className={`min-h-11 rounded-xl border px-3 py-3 text-sm transition-colors sm:px-4 sm:text-base ${
                         isInQueue ? 'border-green-500 bg-green-600/20 text-white' : 'border-white/20 bg-white/10 text-gray-100 hover:bg-white/20'
                       }`}
                     >
@@ -428,7 +513,7 @@ export default function ModernMovieDetailsModal({
                     </button>
                     <button
                       onClick={handleLike}
-                      className={`rounded-xl border px-4 py-3 transition-colors ${
+                      className={`min-h-11 rounded-xl border px-3 py-3 text-sm transition-colors sm:px-4 sm:text-base ${
                         isLiked ? 'border-red-500 bg-red-600/20 text-white' : 'border-white/20 bg-white/10 text-gray-100 hover:bg-white/20'
                       }`}
                     >
@@ -439,7 +524,7 @@ export default function ModernMovieDetailsModal({
                     </button>
                     <button
                       onClick={() => void handleShare()}
-                      className="rounded-xl border border-white/20 bg-white/10 px-4 py-3 text-white transition-colors hover:bg-white/20"
+                      className="min-h-11 rounded-xl border border-white/20 bg-white/10 px-3 py-3 text-sm text-white transition-colors hover:bg-white/20 sm:px-4 sm:text-base"
                     >
                       <span className="inline-flex items-center gap-2">
                         <Share2 className="h-4 w-4" />
@@ -448,7 +533,7 @@ export default function ModernMovieDetailsModal({
                     </button>
                     <button
                       onClick={() => void handleDownload()}
-                      className="rounded-xl border border-white/20 bg-white/10 px-4 py-3 text-white transition-colors hover:bg-white/20"
+                      className="min-h-11 rounded-xl border border-white/20 bg-white/10 px-3 py-3 text-sm text-white transition-colors hover:bg-white/20 sm:px-4 sm:text-base"
                     >
                       <span className="inline-flex items-center gap-2">
                         <Download className="h-4 w-4" />
@@ -568,13 +653,97 @@ export default function ModernMovieDetailsModal({
                   <p className="leading-relaxed text-gray-300">{summaryText}</p>
                 </div>
 
+                <div className="rounded-2xl border border-white/10 bg-white/5 p-4">
+                  <div className="mb-3 flex flex-wrap items-center justify-between gap-3">
+                    <div>
+                      <h3 className="text-xl font-bold text-white">Movie Night Take</h3>
+                      <p className="mt-1 text-sm text-gray-400">Original page notes built from cast, crew, format, and viewer signals.</p>
+                    </div>
+                    {isEditorialLoading && (
+                      <span className="inline-flex items-center gap-2 rounded-full bg-white/10 px-3 py-1 text-sm text-gray-300">
+                        <LoaderCircle className="h-4 w-4 animate-spin" />
+                        Loading details
+                      </span>
+                    )}
+                  </div>
+                  <p className="leading-relaxed text-gray-300">
+                    {editorialDetails?.editorialBlurb ||
+                      `${title} is listed on Movie Night with quick watch facts, playback options, and curated context so visitors can decide what to stream next.`}
+                  </p>
+                </div>
+
                 <div className="grid gap-4 sm:grid-cols-2">
                   <DetailCard label="Type" value={contentType} />
                   <DetailCard label="Release Date" value={releaseDate || 'N/A'} />
                   <DetailCard label="Rating" value={`${movie.vote_average.toFixed(1)}/10`} />
-                  <DetailCard label="Genres" value={getGenreNames(movie.genre_ids) || 'N/A'} />
+                  <DetailCard label={isSeries ? 'Runtime' : 'Runtime'} value={runtimeLabel} />
+                  <DetailCard label="Status" value={editorialDetails?.status || 'Available'} />
+                  <DetailCard label="Streaming Quality" value="HD playback with multiple player sources" />
+                  <DetailCard label="Genres" value={detailGenres || 'N/A'} />
+                  {editorialDetails?.tagline && <DetailCard label="Tagline" value={editorialDetails.tagline} />}
+                  {editorialDetails?.languages.length ? <DetailCard label="Languages" value={editorialDetails.languages.slice(0, 4).join(', ')} /> : null}
                   {isSeries && episodeDetails && <DetailCard label="Selected Episode" value={episodeDetails.name} />}
                 </div>
+
+                {(editorialDetails?.cast.length || crewHighlights?.length) ? (
+                  <div className="grid gap-4 lg:grid-cols-2">
+                    {editorialDetails?.cast.length ? (
+                      <PeoplePanel title="Cast" people={editorialDetails.cast} />
+                    ) : null}
+                    {crewHighlights?.length ? (
+                      <PeoplePanel title="Crew" people={crewHighlights} />
+                    ) : null}
+                  </div>
+                ) : null}
+
+                <div className="rounded-2xl border border-white/10 bg-white/5 p-4">
+                  <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
+                    <div>
+                      <h3 className="text-xl font-bold text-white">Viewer Activity</h3>
+                      <p className="mt-1 text-sm text-gray-400">Ratings, saved-list intent, and comments add useful signals beyond the basic description.</p>
+                    </div>
+                    <div className="flex flex-wrap gap-2 text-sm">
+                      <span className="rounded-full bg-yellow-500/15 px-3 py-1 text-yellow-200">{movie.vote_average.toFixed(1)}/10 rating</span>
+                      <span className="rounded-full bg-white/10 px-3 py-1 text-gray-200">{isLiked ? 'Liked by you' : 'Like to rate'}</span>
+                      <span className="rounded-full bg-white/10 px-3 py-1 text-gray-200">{isInQueue ? 'In your queue' : 'Queue available'}</span>
+                    </div>
+                  </div>
+                  {editorialDetails?.reviews.length ? (
+                    <div className="grid gap-3 lg:grid-cols-3">
+                      {editorialDetails.reviews.map((review) => (
+                        <div key={`${review.author}-${review.content.slice(0, 18)}`} className="rounded-2xl border border-white/10 bg-black/35 p-4">
+                          <p className="text-sm font-semibold text-white">{review.author}</p>
+                          <p className="mt-2 line-clamp-5 text-sm leading-relaxed text-gray-300">{review.content}</p>
+                        </div>
+                      ))}
+                    </div>
+                  ) : (
+                    <p className="text-sm text-gray-300">Be the first to shape this title on your list by liking it, queueing it, or sharing it with friends.</p>
+                  )}
+                </div>
+
+                {editorialDetails?.similar.length ? (
+                  <div className="rounded-2xl border border-white/10 bg-white/5 p-4">
+                    <div className="mb-4">
+                      <h3 className="text-xl font-bold text-white">{isSeries ? 'Similar TV Shows' : 'Similar Movies'}</h3>
+                      <p className="mt-1 text-sm text-gray-400">Editorial picks from the similar-title feed, with short context for discovery.</p>
+                    </div>
+                    <div className="grid grid-cols-1 gap-3 min-[380px]:grid-cols-2 sm:grid-cols-3 lg:grid-cols-4">
+                      {editorialDetails.similar.map((item) => (
+                        <div key={`${item.imdb_id || item.id}-${item.title}`} className="overflow-hidden rounded-2xl border border-white/10 bg-black/35">
+                          <img src={getImageUrl(item.poster_path)} alt={getContentTitle(item)} className="aspect-[2/3] w-full object-cover" loading="lazy" />
+                          <div className="p-3">
+                            <p className="line-clamp-2 text-sm font-semibold text-white">{getContentTitle(item)}</p>
+                            <p className="mt-1 text-xs text-gray-400">{getContentYear(item)} | {getGenreNames(item.genre_ids) || getContentTypeLabel(item)}</p>
+                            <p className="mt-2 line-clamp-3 text-xs leading-relaxed text-gray-300">
+                              {getContentTitle(item)} is a useful next pick for viewers who want a related tone, genre, or story rhythm after {title}.
+                            </p>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                ) : null}
 
                 {playerError && (
                   <div className="rounded-2xl border border-red-500/30 bg-red-600/15 p-4">
@@ -598,6 +767,108 @@ function DetailCard({ label, value }: { label: string; value: string }) {
     <div className="rounded-2xl border border-white/10 bg-white/5 p-4">
       <p className="text-sm text-gray-400">{label}</p>
       <p className="mt-2 text-white">{value}</p>
+    </div>
+  );
+}
+
+function buildContentStructuredData({
+  movie,
+  title,
+  description,
+  releaseDate,
+  image,
+  url,
+  isSeries,
+  genres,
+  cast,
+  crew,
+  runtime
+}: {
+  movie: MovieData;
+  title: string;
+  description: string;
+  releaseDate: string;
+  image: string;
+  url: string;
+  isSeries: boolean;
+  genres: string[];
+  cast: Array<{ name: string; role: string }>;
+  crew: Array<{ name: string; role: string }>;
+  runtime?: number;
+}) {
+  const directors = crew.filter((person) => /director|creator|showrunner/i.test(person.role));
+  const structuredData: Record<string, unknown> = {
+    '@context': 'https://schema.org',
+    '@type': isSeries ? 'TVSeries' : 'Movie',
+    name: title,
+    image,
+    description,
+    url,
+    datePublished: releaseDate || undefined,
+    genre: genres.length ? genres : undefined,
+    actor: cast.slice(0, 8).map((person) => ({
+      '@type': 'Person',
+      name: person.name,
+      characterName: person.role
+    })),
+    potentialAction: {
+      '@type': 'WatchAction',
+      target: {
+        '@type': 'EntryPoint',
+        urlTemplate: url
+      }
+    }
+  };
+
+  if (directors.length > 0) {
+    structuredData.director = directors.slice(0, 4).map((person) => ({
+      '@type': 'Person',
+      name: person.name
+    }));
+  }
+
+  if (!isSeries && runtime) {
+    structuredData.duration = `PT${runtime}M`;
+  }
+
+  if (movie.vote_average > 0) {
+    structuredData.aggregateRating = {
+      '@type': 'AggregateRating',
+      ratingValue: Number(movie.vote_average.toFixed(1)),
+      bestRating: 10,
+      worstRating: 1
+    };
+  }
+
+  return Object.fromEntries(
+    Object.entries(structuredData).filter(([, value]) => {
+      if (Array.isArray(value)) return value.length > 0;
+      return value !== undefined && value !== '';
+    })
+  );
+}
+
+function PeoplePanel({ title, people }: { title: string; people: Array<{ name: string; role: string; profile?: string | null }> }) {
+  return (
+    <div className="rounded-2xl border border-white/10 bg-white/5 p-4">
+      <h3 className="mb-4 text-xl font-bold text-white">{title}</h3>
+      <div className="grid gap-3 sm:grid-cols-2">
+        {people.map((person) => (
+          <div key={`${title}-${person.name}-${person.role}`} className="flex min-w-0 items-center gap-3 rounded-2xl bg-black/35 p-3">
+            {person.profile ? (
+              <img src={person.profile} alt={person.name} className="h-12 w-12 rounded-xl object-cover" loading="lazy" />
+            ) : (
+              <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-white/10 text-sm font-semibold text-white">
+                {person.name.slice(0, 1)}
+              </div>
+            )}
+            <div className="min-w-0">
+              <p className="truncate text-sm font-semibold text-white">{person.name}</p>
+              <p className="truncate text-xs text-gray-400">{person.role}</p>
+            </div>
+          </div>
+        ))}
+      </div>
     </div>
   );
 }

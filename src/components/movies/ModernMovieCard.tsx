@@ -31,7 +31,7 @@ const sizeConfig = {
     titleSize: 'text-xs',
   },
   medium: {
-    poster: 'w-[160px] h-[240px] sm:w-[200px] sm:h-[300px]',
+    poster: 'w-full max-w-[160px] aspect-[2/3] sm:w-[200px] sm:max-w-[200px] sm:h-[300px]',
     backdrop: 'w-[300px] h-[169px] sm:w-[400px] sm:h-[225px]',
     titleSize: 'text-sm sm:text-base',
   },
@@ -213,6 +213,7 @@ export default function ModernMovieCard({
               className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-110"
               onError={() => setImageError(true)}
               loading="lazy"
+              decoding="async"
             />
           ) : (
             <div className="flex h-full w-full items-center justify-center bg-gradient-to-br from-gray-900 via-gray-800 to-black">

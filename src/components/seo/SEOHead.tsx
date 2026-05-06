@@ -87,7 +87,7 @@ export default function SEOHead({
       '@type': movieTitle ? 'Movie' : 'WebSite',
       name: movieTitle || 'Movie Night',
       description: movieDescription || description,
-      url: movieTitle ? `${url}/movie/${movieTitle?.toLowerCase().replace(/\s+/g, '-')}` : url,
+      url: movieTitle ? `${url}/movies/${movieTitle?.toLowerCase().trim().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '')}` : url,
       image: image,
       potentialAction: {
         '@type': 'WatchAction',

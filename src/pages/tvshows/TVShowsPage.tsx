@@ -125,7 +125,7 @@ export default function TVShowsPage() {
             <div className="flex items-center gap-3">
               <Tv className="w-6 h-6 text-blue-500" />
               <h1 className="text-2xl sm:text-3xl lg:text-4xl font-bold text-white">
-                TV Shows
+                Watch TV Shows Online
               </h1>
             </div>
           </div>
@@ -141,6 +141,8 @@ export default function TVShowsPage() {
                 src={`https://image.tmdb.org/t/p/original${mockTVShows[0].backdrop_path}`}
                 alt={mockTVShows[0].title}
                 className="w-full h-full object-cover"
+                loading="eager"
+                decoding="async"
               />
               <div className="absolute inset-0 bg-gradient-to-t from-black via-black/50 to-transparent" />
               <div className="absolute bottom-0 left-0 right-0 p-6">
@@ -241,7 +243,7 @@ export default function TVShowsPage() {
               animate={{ opacity: 1, y: 0 }}
               className={
                 viewMode === 'grid'
-                  ? `grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-4 sm:gap-6 pb-12`
+                  ? `grid grid-cols-1 justify-items-center gap-4 pb-12 min-[380px]:grid-cols-2 sm:grid-cols-3 sm:gap-6 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6`
                   : `space-y-4 pb-12`
               }
             >
@@ -254,20 +256,14 @@ export default function TVShowsPage() {
                   className={
                     viewMode === 'grid' ? '' : 'flex gap-4 bg-white/5 rounded-lg p-4 hover:bg-white/10 transition-colors cursor-pointer group'
                   }
-                  onClick={() => {
-                    // Navigate to TV show details
-                    console.log('Navigate to TV show:', show);
-                  }}
+                  onClick={() => {}}
                 >
                   {viewMode === 'grid' ? (
                     <ModernMovieCard
                       movie={show}
                       layout="poster"
                       size="medium"
-                      onSelect={(show) => {
-                        // Navigate to TV show details
-                        console.log('Navigate to TV show:', show);
-                      }}
+                      onSelect={() => {}}
                       showPlayButton={true}
                     />
                   ) : (
@@ -277,6 +273,8 @@ export default function TVShowsPage() {
                           src={`https://image.tmdb.org/t/p/w500${show.poster_path}`}
                           alt={show.title}
                           className="w-full h-full object-cover rounded-lg"
+                          loading="lazy"
+                          decoding="async"
                         />
                         <div className="absolute inset-0 bg-black/60 rounded-lg opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
                           <Play className="w-8 h-8 text-white" />

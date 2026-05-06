@@ -55,7 +55,7 @@ export default function MovieDetailsPage({ movie, onClose }: MovieDetailsPagePro
         >
           <ArrowLeft className="w-5 h-5" />
         </button>
-        <h1 className="text-lg font-semibold truncate">{movie.title}</h1>
+        <p className="text-lg font-semibold truncate">{movie.title}</p>
       </nav>
 
       {/* Video Player Section - Full Width at Top */}

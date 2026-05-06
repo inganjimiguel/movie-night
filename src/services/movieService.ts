@@ -83,11 +83,23 @@ interface TwoEmbedMoviePayload {
   year?: string;
   imdb_id?: string;
   tmdb_id?: number;
+  status?: string;
   release_date?: string;
+  runtime?: number;
+  tagline?: string;
   overview?: string;
+  plot?: string;
+  genres?: string[];
+  production_companies?: string[];
+  spoken_languages?: string[];
   poster?: string;
   backdrops?: string[];
   vote_average?: number;
+  vote_count?: number;
+  cast?: TwoEmbedCastMember[];
+  crew?: TwoEmbedCrewMember[];
+  cast_crew?: TwoEmbedCastCrew;
+  reviews?: TwoEmbedReview[];
 }
 
 interface TwoEmbedTvPayload {
@@ -96,10 +108,22 @@ interface TwoEmbedTvPayload {
   tmdb_id?: number;
   imdb_id?: string;
   first_air_date?: string;
+  last_air_date?: string;
+  status?: string;
+  type?: string;
+  total_seasons?: number;
   overview?: string;
+  genres?: string[];
+  origin_country?: string[];
+  spoken_languages?: string[];
   poster?: string;
   backdrops?: string[];
   vote_average?: number;
+  vote_count?: number;
+  cast?: TwoEmbedCastMember[];
+  crew?: TwoEmbedCrewMember[];
+  cast_crew?: TwoEmbedCastCrew;
+  reviews?: TwoEmbedReview[];
   seasons?: Array<{
     season_number?: number;
     name?: string;
@@ -155,6 +179,62 @@ interface TwoEmbedSearchResponse<T> {
   results?: T[];
 }
 
+interface TwoEmbedCastMember {
+  name?: string;
+  character?: string;
+  profile?: string | null;
+}
+
+interface TwoEmbedCrewMember {
+  name?: string;
+  job?: string;
+  department?: string;
+  profile?: string | null;
+}
+
+interface TwoEmbedCastCrew {
+  cast?: TwoEmbedCastMember[];
+  crew?: TwoEmbedCrewMember[];
+}
+
+interface TwoEmbedReview {
+  author?: string;
+  content?: string;
+  created_at?: string;
+}
+
+interface TwoEmbedSimilarResponse<T> {
+  page?: number;
+  total_pages?: number;
+  results?: T[];
+}
+
+export interface EditorialPerson {
+  name: string;
+  role: string;
+  profile?: string | null;
+}
+
+export interface EditorialReview {
+  author: string;
+  content: string;
+}
+
+export interface EditorialContentDetails {
+  imdbId?: string;
+  runtime?: number;
+  status?: string;
+  tagline?: string;
+  genres: string[];
+  languages: string[];
+  productionCompanies: string[];
+  cast: EditorialPerson[];
+  crew: EditorialPerson[];
+  reviews: EditorialReview[];
+  similar: MovieData[];
+  editorialBlurb: string;
+}
+
 export interface TrailerData {
   id: number;
   title: string;
@@ -187,6 +267,9 @@ const imdbIdCache = new Map<string, Promise<string | null>>();
 const twoEmbedMovieCache = new Map<string, Promise<TwoEmbedMoviePayload | null>>();
 const twoEmbedTvCache = new Map<string, Promise<TwoEmbedTvPayload | null>>();
 const twoEmbedSeasonCache = new Map<string, Promise<TwoEmbedSeasonPayload | null>>();
+const editorialDetailsCache = new Map<string, Promise<EditorialContentDetails | null>>();
+const twoEmbedSimilarMovieCache = new Map<string, Promise<TwoEmbedSimilarResponse<TwoEmbedSearchMovieResult> | null>>();
+const twoEmbedSimilarTvCache = new Map<string, Promise<TwoEmbedSimilarResponse<TwoEmbedSearchTvResult> | null>>();
 
 const getVideoSourceBaseUrl = (source: VideoSource) => {
   return VIDEO_SOURCE_OPTIONS.find((option) => option.id === source)?.baseUrl ?? VIDEO_SOURCE_OPTIONS[0].baseUrl;
@@ -243,6 +326,19 @@ const getRankingSignal = (item: Pick<MovieData, 'popularity' | 'viewCount' | 'vo
 
 export const getContentTitle = (item: Pick<MovieData, 'title' | 'name'>): string => {
   return item.title || item.name || 'Untitled';
+};
+
+export const createSlug = (value: string): string => {
+  return value
+    .toLowerCase()
+    .trim()
+    .replace(/&/g, ' and ')
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-+|-+$/g, '');
+};
+
+export const getContentSlug = (item: Pick<MovieData, 'title' | 'name'>): string => {
+  return createSlug(getContentTitle(item));
 };
 
 export const getContentReleaseDate = (item: Pick<MovieData, 'release_date' | 'first_air_date'>): string => {
@@ -394,6 +490,52 @@ const fetchTwoEmbedSeasonByImdbId = async (imdbId: string, season: number): Prom
   return request;
 };
 
+const fetchTwoEmbedSimilarMoviesByImdbId = async (
+  imdbId: string,
+  page = 1
+): Promise<TwoEmbedSimilarResponse<TwoEmbedSearchMovieResult> | null> => {
+  const cacheKey = `${imdbId}:page:${page}`;
+  const cached = twoEmbedSimilarMovieCache.get(cacheKey);
+  if (cached) return cached;
+
+  const request = (async () => {
+    try {
+      const res = await fetch(`${TWO_EMBED_API_BASE_URL}/similar?imdb_id=${encodeURIComponent(imdbId)}&page=${page}`);
+      if (!res.ok) return null;
+      return await res.json() as TwoEmbedSimilarResponse<TwoEmbedSearchMovieResult>;
+    } catch (error) {
+      console.error(`2embed similar movie fetch error for ${imdbId}:`, error);
+      return null;
+    }
+  })();
+
+  twoEmbedSimilarMovieCache.set(cacheKey, request);
+  return request;
+};
+
+const fetchTwoEmbedSimilarTvByImdbId = async (
+  imdbId: string,
+  page = 1
+): Promise<TwoEmbedSimilarResponse<TwoEmbedSearchTvResult> | null> => {
+  const cacheKey = `${imdbId}:page:${page}`;
+  const cached = twoEmbedSimilarTvCache.get(cacheKey);
+  if (cached) return cached;
+
+  const request = (async () => {
+    try {
+      const res = await fetch(`${TWO_EMBED_API_BASE_URL}/similartv?imdb_id=${encodeURIComponent(imdbId)}&page=${page}`);
+      if (!res.ok) return null;
+      return await res.json() as TwoEmbedSimilarResponse<TwoEmbedSearchTvResult>;
+    } catch (error) {
+      console.error(`2embed similar TV fetch error for ${imdbId}:`, error);
+      return null;
+    }
+  })();
+
+  twoEmbedSimilarTvCache.set(cacheKey, request);
+  return request;
+};
+
 const mergeCanonicalMovieMetadata = (
   item: MovieData,
   metadata: TwoEmbedMoviePayload | null,
@@ -484,6 +626,144 @@ export const hydrateContentForDetails = async (item: MovieData): Promise<MovieDa
   }
 
   return await enrichMovieWithTwoEmbed(item, item.media_type === 'animation' ? 'animation' : 'movie');
+};
+
+const cleanText = (value?: string | null): string => {
+  if (!value) return '';
+
+  return value
+    .replace(/<[^>]*>/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
+};
+
+const truncateText = (value: string, maxLength: number): string => {
+  if (value.length <= maxLength) return value;
+  return `${value.slice(0, maxLength).replace(/\s+\S*$/, '')}...`;
+};
+
+const normalizePeople = (
+  people: TwoEmbedCastMember[] | TwoEmbedCrewMember[] | undefined,
+  roleKey: 'character' | 'job',
+  maxItems: number
+): EditorialPerson[] => {
+  if (!Array.isArray(people)) return [];
+
+  return people
+    .filter((person) => Boolean(person.name))
+    .slice(0, maxItems)
+    .map((person) => ({
+      name: person.name || 'Unknown',
+      role: ('character' in person && roleKey === 'character' ? person.character : undefined) ||
+        ('job' in person && roleKey === 'job' ? person.job : undefined) ||
+        'Featured',
+      profile: person.profile
+    }));
+};
+
+const normalizeReviews = (reviews?: TwoEmbedReview[]): EditorialReview[] => {
+  if (!Array.isArray(reviews)) return [];
+
+  return reviews
+    .map((review) => ({
+      author: review.author || 'Viewer',
+      content: truncateText(cleanText(review.content), 280)
+    }))
+    .filter((review) => review.content.length > 0)
+    .slice(0, 3);
+};
+
+const buildEditorialBlurb = (
+  item: MovieData,
+  details: TwoEmbedMoviePayload | TwoEmbedTvPayload | null,
+  isSeries: boolean
+): string => {
+  const title = getContentTitle(item);
+  const year = getContentYear(item);
+  const detailGenres = Array.isArray(details?.genres) ? details.genres.filter(Boolean).slice(0, 3) : [];
+  const genreText = detailGenres.length > 0 ? detailGenres.join(', ') : getGenreNames(item.genre_ids) || 'story-driven';
+  const cast = normalizePeople(
+    details?.cast || details?.cast_crew?.cast,
+    'character',
+    3
+  ).map((person) => person.name);
+  const directors = normalizePeople(
+    details?.crew || details?.cast_crew?.crew,
+    'job',
+    10
+  ).filter((person) => /director|showrunner|creator/i.test(person.role)).map((person) => person.name);
+  const runtimeValue = details && 'runtime' in details ? details.runtime : undefined;
+  const runtime = runtimeValue ? ` with a ${runtimeValue}-minute runtime` : '';
+  const credits = [
+    directors.length > 0 ? `guided by ${directors.slice(0, 2).join(' and ')}` : '',
+    cast.length > 0 ? `featuring ${cast.join(', ')}` : ''
+  ].filter(Boolean).join(' and ');
+  const formatLabel = isSeries ? 'series' : 'movie';
+  const releaseText = year !== 'N/A' ? `from ${year}` : 'available on Movie Night';
+
+  return `${title} is a ${genreText} ${formatLabel} ${releaseText}${runtime}. This Movie Night guide highlights why it is worth watching now${credits ? `, ${credits}` : ''}, plus quick facts, viewer notes, and similar picks so the page offers more than a poster and a reused summary.`;
+};
+
+const normalizeMovieSimilarResults = (results: TwoEmbedSearchMovieResult[] = []): MovieData[] => {
+  return results
+    .filter((item) => Boolean(item.tmdb_id || item.imdb_id))
+    .slice(0, 8)
+    .map((item) => normalizeTwoEmbedMovieSearchResult(item));
+};
+
+const normalizeTvSimilarResults = (results: TwoEmbedSearchTvResult[] = []): MovieData[] => {
+  return results
+    .filter((item) => Boolean(item.tmdb_id || item.imdb_id))
+    .slice(0, 8)
+    .map((item) => normalizeTwoEmbedTvSearchResult(item));
+};
+
+export const getEditorialContentDetails = async (item: MovieData): Promise<EditorialContentDetails | null> => {
+  const isSeries = isTvLikeContent(item);
+  const cacheKey = `${isSeries ? 'tv' : 'movie'}:${item.imdb_id || item.id}`;
+  const cached = editorialDetailsCache.get(cacheKey);
+  if (cached) return cached;
+
+  const request = (async () => {
+    const imdbId = item.imdb_id || await getTmdbExternalIds(item.id, isSeries ? 'tv' : 'movie');
+    if (!imdbId) return null;
+
+    const [details, similarResponse] = isSeries
+      ? await Promise.all([
+          fetchTwoEmbedTvByImdbId(imdbId),
+          fetchTwoEmbedSimilarTvByImdbId(imdbId, 1)
+        ])
+      : await Promise.all([
+          fetchTwoEmbedMovieByImdbId(imdbId),
+          fetchTwoEmbedSimilarMoviesByImdbId(imdbId, 1)
+        ]);
+
+    const castSource = details?.cast || details?.cast_crew?.cast;
+    const crewSource = details?.crew || details?.cast_crew?.crew;
+    const similar = isSeries
+      ? normalizeTvSimilarResults((similarResponse as TwoEmbedSimilarResponse<TwoEmbedSearchTvResult> | null)?.results)
+      : normalizeMovieSimilarResults((similarResponse as TwoEmbedSimilarResponse<TwoEmbedSearchMovieResult> | null)?.results);
+
+    return {
+      imdbId,
+      runtime: !isSeries && details && 'runtime' in details ? details.runtime : undefined,
+      status: details?.status,
+      tagline: !isSeries && details && 'tagline' in details ? details.tagline : undefined,
+      genres: Array.isArray(details?.genres) ? details.genres.filter(Boolean) : [],
+      languages: Array.isArray(details?.spoken_languages) ? details.spoken_languages.filter(Boolean) : [],
+      productionCompanies: !isSeries && details && 'production_companies' in details && Array.isArray(details.production_companies)
+        ? details.production_companies.filter(Boolean)
+        : [],
+      cast: normalizePeople(castSource, 'character', 8),
+      crew: normalizePeople(crewSource, 'job', 8),
+      reviews: normalizeReviews(details?.reviews),
+      similar,
+      editorialBlurb: buildEditorialBlurb(item, details, isSeries)
+    };
+  })();
+
+  editorialDetailsCache.set(cacheKey, request);
+  return request;
 };
 
 const normalizeTwoEmbedMovieSearchResult = (item: TwoEmbedSearchMovieResult): MovieData => {

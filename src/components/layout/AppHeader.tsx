@@ -27,12 +27,13 @@ export default function AppHeader({
       }`}
     >
       <div className="flex items-center gap-8">
-        <h1
+        <button
+          type="button"
           onClick={onResetToBrowse}
           className="text-netflix-red text-2xl md:text-3xl font-black tracking-tighter uppercase italic cursor-pointer scale-110 md:scale-100 origin-left"
         >
           Movie Night
-        </h1>
+        </button>
 
         <div className="hidden lg:flex items-center gap-5 text-sm font-medium text-gray-300">
           {navigationItems.map((item) => (

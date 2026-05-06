@@ -199,9 +199,9 @@ export default function TrailersPage({ navigateTo }: TrailersPageProps = {}) {
         <X className="h-5 w-5 text-white" />
       </button>
 
-      <div className="pointer-events-none fixed left-4 top-4 z-40 rounded-full border border-white/10 bg-black/55 px-4 py-2 text-sm font-semibold text-white backdrop-blur-md">
-        Trailers
-      </div>
+      <h1 className="pointer-events-none fixed left-4 top-4 z-40 rounded-full border border-white/10 bg-black/55 px-4 py-2 text-sm font-semibold text-white backdrop-blur-md">
+        Movie Trailers and New Releases
+      </h1>
 
       <div
         ref={containerRef}
@@ -234,6 +234,8 @@ export default function TrailersPage({ navigateTo }: TrailersPageProps = {}) {
                       src={getImageUrl(item.backdrop_path || item.poster_path, 'original')}
                       alt={title}
                       className="h-full w-full object-cover"
+                      loading={index === 0 ? 'eager' : 'lazy'}
+                      decoding="async"
                     />
                     <div className="absolute inset-0 bg-gradient-to-t from-black via-black/50 to-black/20" />
                     <button

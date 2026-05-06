@@ -1,5 +1,5 @@
 import { useEffect } from 'react';
-import { type MovieData } from '../../services/movieService';
+import { getContentSlug, type MovieData } from '../../services/movieService';
 
 interface DynamicSEOProps {
   currentPage?: 'home' | 'search' | 'favorites' | 'watchlater' | 'tvshows';
@@ -58,7 +58,7 @@ export default function DynamicSEO({
         title = `Watch ${selectedMovie.title} (2024) - Movie Night`;
         description = `Watch ${selectedMovie.title} online for free! ${selectedMovie.overview?.substring(0, 160)}...`;
         keywords += `, ${selectedMovie.title}, watch ${selectedMovie.title} online, ${selectedMovie.title} streaming`;
-        url += `/movie/${selectedMovie.id}`;
+        url += `/movies/${getContentSlug(selectedMovie)}`;
       }
       
       // Update document title

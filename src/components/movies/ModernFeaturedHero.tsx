@@ -108,9 +108,9 @@ export default function ModernFeaturedHero({
               </div>
 
               <div className="space-y-4">
-                <h1 className="text-4xl font-black leading-[0.95] tracking-tight text-white sm:text-5xl lg:text-6xl">
+                <h2 className="break-words text-3xl font-black leading-tight tracking-tight text-white sm:text-5xl sm:leading-[0.95] lg:text-6xl">
                   {title}
-                </h1>
+                </h2>
 
                 <div className="flex flex-wrap items-center gap-3 text-sm sm:text-base">
                   <div className="flex items-center gap-2 rounded-full border border-white/10 bg-white/5 px-3 py-1.5 text-white">
@@ -139,7 +139,7 @@ export default function ModernFeaturedHero({
                 whileHover={{ scale: 1.03 }}
                 whileTap={{ scale: 0.97 }}
                 onClick={onPlay}
-                className="inline-flex items-center gap-3 rounded-full bg-white px-6 py-3 text-sm font-bold text-black shadow-lg shadow-black/30 transition-colors hover:bg-gray-100 sm:px-8 sm:py-4 sm:text-base"
+                className="inline-flex min-h-11 items-center gap-3 rounded-full bg-white px-5 py-3 text-sm font-bold text-black shadow-lg shadow-black/30 transition-colors hover:bg-gray-100 sm:px-8 sm:py-4 sm:text-base"
               >
                 <Play className="h-5 w-5 fill-black" />
                 <span>{playLabel}</span>

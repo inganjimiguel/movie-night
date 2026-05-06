@@ -430,7 +430,7 @@ export default function AllMovies({ onMovieSelect }: AllMoviesProps) {
       <div className="px-4 py-8 sm:px-6 lg:px-8">
         {/* Header */}
         <div className="mb-12 rounded-[32px] border border-white/10 bg-black/45 px-6 py-8 text-center shadow-2xl shadow-black/25 backdrop-blur-xl sm:px-8">
-          <h1 className="mb-4 text-4xl font-bold text-white sm:text-5xl">Popular movies of different years</h1>
+          <h2 className="mb-4 text-4xl font-bold text-white sm:text-5xl">Popular movies of different years</h2>
           <p className="text-lg text-gray-400">Browse the most popular movies by year</p>
         </div>
 
@@ -482,7 +482,7 @@ export default function AllMovies({ onMovieSelect }: AllMoviesProps) {
               <p className="text-gray-400">{movies.length} movies available</p>
             </div>
             
-            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-4 sm:gap-6">
+            <div className="grid grid-cols-1 justify-items-center gap-4 min-[380px]:grid-cols-2 sm:grid-cols-3 sm:gap-6 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6">
               {movies.map((movie, index) => (
                 <motion.div
                   key={movie.id}

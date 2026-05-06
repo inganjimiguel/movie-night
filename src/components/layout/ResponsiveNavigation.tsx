@@ -94,9 +94,6 @@ export default function ResponsiveNavigation({
       navigateTo(path);
     } else if (path === '/') {
       onResetToBrowse();
-    } else {
-      // Fallback for demo purposes
-      console.log('Navigate to:', path);
     }
   };
 
@@ -114,12 +111,13 @@ export default function ResponsiveNavigation({
           {/* Logo and Desktop Nav */}
           <div className="flex items-center gap-6 lg:gap-8">
             {/* Logo */}
-            <h1
+            <button
+              type="button"
               onClick={onResetToBrowse}
               className="text-red-600 text-xl sm:text-2xl lg:text-3xl font-black tracking-tighter uppercase cursor-pointer hover:text-red-500 transition-colors"
             >
               MovieNight
-            </h1>
+            </button>
 
             {/* Desktop Navigation Items */}
             <div className="hidden lg:flex items-center gap-6 text-sm font-medium">

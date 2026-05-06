@@ -4,11 +4,13 @@ Allow: /
 # Sitemap
 Sitemap: https://movienight.com/sitemap.xml
 
-# Allow search engines to crawl all content
-Allow: /search
-Allow: /favorites
-Allow: /watchlater
+# Public app routes
+Allow: /movies
+Allow: /genres
+Allow: /lists
+Allow: /new
 Allow: /tv-shows
+Allow: /trailers
 
 # Block any sensitive or admin areas (if they exist in future)
 Disallow: /admin/
