@@ -103,8 +103,8 @@ export default function ModernMovieDetailsModal({
   const downloadTargetUrl = movie
     ? (
         isSeries
-          ? getVidsrcUrl(movie, effectiveSeason, effectiveEpisode, currentSource)
-          : getVidsrcUrl(movie, 1, 1, currentSource)
+          ? getVidsrcUrl(movie, effectiveSeason, effectiveEpisode, 'sflix')
+          : getVidsrcUrl(movie, 1, 1, 'sflix')
       )
     : null;
 

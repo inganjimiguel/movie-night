@@ -166,7 +166,7 @@ export interface TrailerData {
   videos: MovieVideoResult[];
 }
 
-export type VideoSource = 'vidlinkPro' | 'twoEmbed' | 'superembedStream' | 'autoembedCc' | 'godriveplayer' | 'vidsrcTo' | 'vsembedSu';
+export type VideoSource = 'vidlinkPro' | 'twoEmbed' | 'superembedStream' | 'autoembedCc' | 'godriveplayer' | 'vidsrcTo' | 'vsembedSu' | 'sflix';
 export const DEFAULT_VIDEO_SOURCE = (import.meta.env.VITE_DEFAULT_VIDEO_SOURCE || 'vidlinkPro') as VideoSource;
 export const VIDEO_SOURCE_OPTIONS: Array<{
   id: VideoSource;
@@ -180,6 +180,7 @@ export const VIDEO_SOURCE_OPTIONS: Array<{
   { id: 'godriveplayer', name: 'godriveplayer.com', baseUrl: 'https://godriveplayer.com' },
   { id: 'vsembedSu', name: 'vsembed.su', baseUrl: 'https://vidsrc-embed.su' },
   { id: 'vidsrcTo', name: 'vidsrc.to', baseUrl: 'https://vidsrc.to' },
+  { id: 'sflix', name: 'sflix.to', baseUrl: 'https://sflix.to' },
 ];
 const trailerUrlCache = new Map<string, Promise<string | null>>();
 const imdbIdCache = new Map<string, Promise<string | null>>();
@@ -622,6 +623,14 @@ export const getVideoUrl = (
       if (isTv && season) params.set('season', String(season));
       if (isTv && episode) params.set('episode', String(episode));
       return `${baseUrl}/player.php?${params.toString()}`;
+    }
+
+    case 'sflix': {
+      if (isTv) {
+        const se = season && episode ? `/${season}/${episode}` : '';
+        return `${baseUrl}/embed/tv/${id}${se}?${params.toString()}`;
+      }
+      return `${baseUrl}/embed/movie/${id}?${params.toString()}`;
     }
 
     // vidsrcTo (and any future path-style sources)
