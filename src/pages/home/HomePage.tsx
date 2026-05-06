@@ -576,6 +576,9 @@ export default function HomePage({ navigateTo }: HomePageProps = {}) {
         currentSource={currentSource}
         onClose={handleCloseMovieDetails}
         onPlay={(season, episode) => selectedMovie && void playMovie(selectedMovie, season, episode, currentSource)}
+        onPlaySimilar={(similarMovie) => {
+          handleOpenMovieDetails(similarMovie, true);
+        }}
         onSourceChange={(source, season, episode) => {
           if (source === currentSource) {
             return;

@@ -123,6 +123,14 @@ export default function TrailersPage({ navigateTo }: TrailersPageProps = {}) {
     setPlayerUrl(null);
   };
 
+  const handlePlaySimilarMovie = (movie: MovieData) => {
+    setSelectedMovie(movie);
+    setIsModalPlaying(true);
+    setIsPlayerLoading(true);
+    setPlayerError(null);
+    setPlayerUrl(null);
+  };
+
   const handlePlayerReady = () => {
     window.setTimeout(() => {
       setIsPlayerLoading(false);
@@ -327,6 +335,7 @@ export default function TrailersPage({ navigateTo }: TrailersPageProps = {}) {
             relatedMovies={[]}
             onClose={handleCloseModal}
             onPlay={handlePlayMovie}
+            onPlaySimilar={handlePlaySimilarMovie}
             onPlayerReady={handlePlayerReady} currentSource={'vidlinkPro'} onSourceChange={function (source: VideoSource, season?: number, episode?: number): void {
               throw new Error('Function not implemented.');
             } }          />

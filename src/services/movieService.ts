@@ -77,6 +77,41 @@ interface TmdbExternalIdsResponse {
   imdb_id?: string | null;
 }
 
+interface TmdbCreditsPerson {
+  id?: number;
+  name?: string;
+  character?: string;
+  job?: string;
+  known_for_department?: string;
+  order?: number;
+  popularity?: number;
+  profile_path?: string | null;
+}
+
+interface TmdbCreditsResponse {
+  cast?: TmdbCreditsPerson[];
+  crew?: TmdbCreditsPerson[];
+}
+
+interface TmdbContentListResponse<T> {
+  results?: T[];
+}
+
+interface TmdbSimilarResult {
+  id: number;
+  title?: string;
+  name?: string;
+  overview?: string;
+  poster_path?: string | null;
+  backdrop_path?: string | null;
+  release_date?: string;
+  first_air_date?: string;
+  vote_average?: number;
+  vote_count?: number;
+  popularity?: number;
+  genre_ids?: number[];
+}
+
 interface TwoEmbedMoviePayload {
   title?: string;
   original_title?: string;
@@ -235,6 +270,28 @@ export interface EditorialContentDetails {
   editorialBlurb: string;
 }
 
+export const getSimilarContentForDetails = async (item: MovieData): Promise<MovieData[]> => {
+  const isSeries = isTvLikeContent(item);
+  const imdbId = item.imdb_id || await getTmdbExternalIds(item.id, isSeries ? 'tv' : 'movie');
+  const tmdbFallback = async () => normalizeTmdbSimilarResults(
+    (await fetchTmdbSimilarContent(item.id, isSeries ? 'tv' : 'movie'))?.results,
+    isSeries
+  );
+
+  if (!imdbId) return await tmdbFallback();
+
+  const similarResponse = isSeries
+    ? await fetchTwoEmbedSimilarTvByImdbId(imdbId, 1)
+    : await fetchTwoEmbedSimilarMoviesByImdbId(imdbId, 1);
+
+  const twoEmbedItems = isSeries
+    ? normalizeTvSimilarResults((similarResponse as TwoEmbedSimilarResponse<TwoEmbedSearchTvResult> | null)?.results)
+    : normalizeMovieSimilarResults((similarResponse as TwoEmbedSimilarResponse<TwoEmbedSearchMovieResult> | null)?.results);
+
+  if (twoEmbedItems.length > 0) return twoEmbedItems;
+  return await tmdbFallback();
+};
+
 export interface TrailerData {
   id: number;
   title: string;
@@ -270,6 +327,8 @@ const twoEmbedSeasonCache = new Map<string, Promise<TwoEmbedSeasonPayload | null
 const editorialDetailsCache = new Map<string, Promise<EditorialContentDetails | null>>();
 const twoEmbedSimilarMovieCache = new Map<string, Promise<TwoEmbedSimilarResponse<TwoEmbedSearchMovieResult> | null>>();
 const twoEmbedSimilarTvCache = new Map<string, Promise<TwoEmbedSimilarResponse<TwoEmbedSearchTvResult> | null>>();
+const tmdbCreditsCache = new Map<string, Promise<TmdbCreditsResponse | null>>();
+const tmdbSimilarCache = new Map<string, Promise<TmdbContentListResponse<TmdbSimilarResult> | null>>();
 
 const getVideoSourceBaseUrl = (source: VideoSource) => {
   return VIDEO_SOURCE_OPTIONS.find((option) => option.id === source)?.baseUrl ?? VIDEO_SOURCE_OPTIONS[0].baseUrl;
@@ -536,6 +595,62 @@ const fetchTwoEmbedSimilarTvByImdbId = async (
   return request;
 };
 
+const fetchTmdbCredits = async (tmdbId: number, mediaType: 'movie' | 'tv'): Promise<TmdbCreditsResponse | null> => {
+  const cacheKey = `${mediaType}:${tmdbId}`;
+  const cached = tmdbCreditsCache.get(cacheKey);
+  if (cached) return cached;
+
+  const request = (async () => {
+    try {
+      const res = await fetch(`${TMDB_BASE_URL}/${mediaType}/${tmdbId}/credits`, {
+        headers: getHeaders()
+      });
+      if (!res.ok) return null;
+      return await res.json() as TmdbCreditsResponse;
+    } catch (error) {
+      console.error(`TMDB credits fetch error for ${mediaType} ${tmdbId}:`, error);
+      return null;
+    }
+  })();
+
+  tmdbCreditsCache.set(cacheKey, request);
+  return request;
+};
+
+const fetchTmdbSimilarContent = async (
+  tmdbId: number,
+  mediaType: 'movie' | 'tv'
+): Promise<TmdbContentListResponse<TmdbSimilarResult> | null> => {
+  const cacheKey = `${mediaType}:${tmdbId}`;
+  const cached = tmdbSimilarCache.get(cacheKey);
+  if (cached) return cached;
+
+  const request = (async () => {
+    const endpoints = mediaType === 'tv'
+      ? [`${TMDB_BASE_URL}/tv/${tmdbId}/recommendations`, `${TMDB_BASE_URL}/tv/${tmdbId}/similar`]
+      : [`${TMDB_BASE_URL}/movie/${tmdbId}/recommendations`, `${TMDB_BASE_URL}/movie/${tmdbId}/similar`];
+
+    for (const endpoint of endpoints) {
+      try {
+        const res = await fetch(`${endpoint}?language=en-US&page=1`, {
+          headers: getHeaders()
+        });
+        if (!res.ok) continue;
+
+        const data = await res.json() as TmdbContentListResponse<TmdbSimilarResult>;
+        if (data.results?.length) return data;
+      } catch (error) {
+        console.error(`TMDB similar content fetch error for ${mediaType} ${tmdbId}:`, error);
+      }
+    }
+
+    return null;
+  })();
+
+  tmdbSimilarCache.set(cacheKey, request);
+  return request;
+};
+
 const mergeCanonicalMovieMetadata = (
   item: MovieData,
   metadata: TwoEmbedMoviePayload | null,
@@ -661,6 +776,29 @@ const normalizePeople = (
     }));
 };
 
+const normalizeTmdbPeople = (
+  people: TmdbCreditsPerson[] | undefined,
+  roleKey: 'character' | 'job',
+  maxItems: number
+): EditorialPerson[] => {
+  if (!Array.isArray(people)) return [];
+
+  return [...people]
+    .filter((person) => Boolean(person.name))
+    .sort((a, b) => {
+      if (typeof a.order === 'number' || typeof b.order === 'number') {
+        return (a.order ?? Number.MAX_SAFE_INTEGER) - (b.order ?? Number.MAX_SAFE_INTEGER);
+      }
+      return (b.popularity ?? 0) - (a.popularity ?? 0);
+    })
+    .slice(0, maxItems)
+    .map((person) => ({
+      name: person.name || 'Unknown',
+      role: (roleKey === 'character' ? person.character : person.job) || person.known_for_department || 'Featured',
+      profile: person.profile_path ? `https://image.tmdb.org/t/p/w185${person.profile_path}` : null
+    }));
+};
+
 const normalizeReviews = (reviews?: TwoEmbedReview[]): EditorialReview[] => {
   if (!Array.isArray(reviews)) return [];
 
@@ -718,6 +856,33 @@ const normalizeTvSimilarResults = (results: TwoEmbedSearchTvResult[] = []): Movi
     .map((item) => normalizeTwoEmbedTvSearchResult(item));
 };
 
+const normalizeTmdbSimilarResults = (results: TmdbSimilarResult[] = [], isSeries: boolean): MovieData[] => {
+  return results
+    .filter((item) => Boolean(item.id))
+    .slice(0, 8)
+    .map((item) => {
+      const genreIds = item.genre_ids || [];
+      const isAnimation = genreIds.includes(16);
+      const title = item.title || item.name || 'Untitled';
+
+      return {
+        id: item.id,
+        title,
+        name: isSeries ? title : undefined,
+        overview: item.overview || '',
+        poster_path: item.poster_path || '',
+        backdrop_path: item.backdrop_path || '',
+        release_date: item.release_date || item.first_air_date || '',
+        first_air_date: item.first_air_date || item.release_date || '',
+        vote_average: item.vote_average || 0,
+        viewCount: item.vote_count || 0,
+        popularity: item.popularity || item.vote_count || item.vote_average || 0,
+        genre_ids: genreIds,
+        media_type: isAnimation ? 'animation' : isSeries ? 'tv' : 'movie',
+      };
+    });
+};
+
 export const getEditorialContentDetails = async (item: MovieData): Promise<EditorialContentDetails | null> => {
   const isSeries = isTvLikeContent(item);
   const cacheKey = `${isSeries ? 'tv' : 'movie'}:${item.imdb_id || item.id}`;
@@ -726,26 +891,23 @@ export const getEditorialContentDetails = async (item: MovieData): Promise<Edito
 
   const request = (async () => {
     const imdbId = item.imdb_id || await getTmdbExternalIds(item.id, isSeries ? 'tv' : 'movie');
-    if (!imdbId) return null;
 
-    const [details, similarResponse] = isSeries
-      ? await Promise.all([
-          fetchTwoEmbedTvByImdbId(imdbId),
-          fetchTwoEmbedSimilarTvByImdbId(imdbId, 1)
-        ])
-      : await Promise.all([
-          fetchTwoEmbedMovieByImdbId(imdbId),
-          fetchTwoEmbedSimilarMoviesByImdbId(imdbId, 1)
-        ]);
+    const [details, tmdbCredits] = await Promise.all([
+      imdbId
+        ? isSeries
+          ? fetchTwoEmbedTvByImdbId(imdbId)
+          : fetchTwoEmbedMovieByImdbId(imdbId)
+        : Promise.resolve(null),
+      fetchTmdbCredits(item.id, isSeries ? 'tv' : 'movie')
+    ]);
 
     const castSource = details?.cast || details?.cast_crew?.cast;
     const crewSource = details?.crew || details?.cast_crew?.crew;
-    const similar = isSeries
-      ? normalizeTvSimilarResults((similarResponse as TwoEmbedSimilarResponse<TwoEmbedSearchTvResult> | null)?.results)
-      : normalizeMovieSimilarResults((similarResponse as TwoEmbedSimilarResponse<TwoEmbedSearchMovieResult> | null)?.results);
+    const cast = normalizePeople(castSource, 'character', 8);
+    const crew = normalizePeople(crewSource, 'job', 8);
 
     return {
-      imdbId,
+      imdbId: imdbId || undefined,
       runtime: !isSeries && details && 'runtime' in details ? details.runtime : undefined,
       status: details?.status,
       tagline: !isSeries && details && 'tagline' in details ? details.tagline : undefined,
@@ -754,10 +916,10 @@ export const getEditorialContentDetails = async (item: MovieData): Promise<Edito
       productionCompanies: !isSeries && details && 'production_companies' in details && Array.isArray(details.production_companies)
         ? details.production_companies.filter(Boolean)
         : [],
-      cast: normalizePeople(castSource, 'character', 8),
-      crew: normalizePeople(crewSource, 'job', 8),
+      cast: cast.length > 0 ? cast : normalizeTmdbPeople(tmdbCredits?.cast, 'character', 8),
+      crew: crew.length > 0 ? crew : normalizeTmdbPeople(tmdbCredits?.crew, 'job', 8),
       reviews: normalizeReviews(details?.reviews),
-      similar,
+      similar: [],
       editorialBlurb: buildEditorialBlurb(item, details, isSeries)
     };
   })();

@@ -25,6 +25,7 @@ import {
   getEditorialContentDetails,
   getGenreNames,
   getImageUrl,
+  getSimilarContentForDetails,
   getTvEpisodeDetails,
   getTvShowDetails,
   getVidsrcUrl,
@@ -47,6 +48,7 @@ interface ModernMovieDetailsModalProps {
   currentSource: VideoSource;
   onClose: () => void;
   onPlay: (season?: number, episode?: number) => void;
+  onPlaySimilar?: (movie: MovieData, season?: number, episode?: number) => void;
   onSourceChange: (source: VideoSource, season?: number, episode?: number) => void;
   onPlayerReady?: () => void;
 }
@@ -60,6 +62,7 @@ export default function ModernMovieDetailsModal({
   currentSource,
   onClose,
   onPlay,
+  onPlaySimilar,
   onSourceChange,
   onPlayerReady,
 }: ModernMovieDetailsModalProps) {
@@ -70,6 +73,8 @@ export default function ModernMovieDetailsModal({
   const [isEpisodeLoading, setIsEpisodeLoading] = useState(false);
   const [editorialDetails, setEditorialDetails] = useState<EditorialContentDetails | null>(null);
   const [isEditorialLoading, setIsEditorialLoading] = useState(false);
+  const [similarItems, setSimilarItems] = useState<MovieData[]>([]);
+  const [isSimilarLoading, setIsSimilarLoading] = useState(false);
   const [downloadMessage, setDownloadMessage] = useState<string | null>(null);
 
   const { hasLikedItem, toggleLikedItem, hasQueuedItem, toggleQueuedItem } = useMediaLibrary();
@@ -79,6 +84,7 @@ export default function ModernMovieDetailsModal({
   const year = movie ? getContentYear(movie) : 'N/A';
   const contentType = movie ? getContentTypeLabel(movie) : 'Movie';
   const isSeries = movie ? isTvLikeContent(movie) : false;
+  const detailsRequestKey = movie ? `${isSeries ? 'tv' : 'movie'}:${movie.id}` : '';
   const isLiked = movie ? hasLikedItem(movie) : false;
   const isInQueue = movie ? hasQueuedItem(movie) : false;
 
@@ -152,23 +158,47 @@ export default function ModernMovieDetailsModal({
     setTvDetails(null);
     setEpisodeDetails(null);
     setEditorialDetails(null);
+    setSimilarItems([]);
     setSelectedSeason(1);
     setSelectedEpisode(1);
     setIsEpisodeLoading(false);
     setIsEditorialLoading(true);
+    setIsSimilarLoading(true);
     setDownloadMessage(null);
 
     let cancelled = false;
 
-    void getEditorialContentDetails(movie).then((details) => {
-      if (cancelled) return;
-      setEditorialDetails(details);
-      setIsEditorialLoading(false);
-    });
+    void getEditorialContentDetails(movie)
+      .then((details) => {
+        if (cancelled) return;
+        setEditorialDetails(details);
+      })
+      .catch((error) => {
+        console.error('Editorial details failed:', error);
+        if (!cancelled) setEditorialDetails(null);
+      })
+      .finally(() => {
+        if (!cancelled) setIsEditorialLoading(false);
+      });
+
+    void getSimilarContentForDetails(movie)
+      .then((items) => {
+        if (cancelled) return;
+        setSimilarItems(items);
+      })
+      .catch((error) => {
+        console.error('Similar details failed:', error);
+        if (!cancelled) setSimilarItems([]);
+      })
+      .finally(() => {
+        if (!cancelled) setIsSimilarLoading(false);
+      });
 
     if (!isTvLikeContent(movie)) {
       return () => {
         cancelled = true;
+        setIsEditorialLoading(false);
+        setIsSimilarLoading(false);
         document.title = previousTitle;
         metaDescription.setAttribute('content', previousDescription);
       };
@@ -186,10 +216,12 @@ export default function ModernMovieDetailsModal({
 
     return () => {
       cancelled = true;
+      setIsEditorialLoading(false);
+      setIsSimilarLoading(false);
       document.title = previousTitle;
       metaDescription.setAttribute('content', previousDescription);
     };
-  }, [movie, title, year, isSeries]);
+  }, [detailsRequestKey]);
 
   useEffect(() => {
     if (!selectedSeasonData) return;
@@ -685,13 +717,17 @@ export default function ModernMovieDetailsModal({
                   {isSeries && episodeDetails && <DetailCard label="Selected Episode" value={episodeDetails.name} />}
                 </div>
 
-                {(editorialDetails?.cast.length || crewHighlights?.length) ? (
+                {(isEditorialLoading || editorialDetails?.cast.length || crewHighlights?.length) ? (
                   <div className="grid gap-4 lg:grid-cols-2">
                     {editorialDetails?.cast.length ? (
                       <PeoplePanel title="Cast" people={editorialDetails.cast} />
+                    ) : isEditorialLoading ? (
+                      <LoadingPanel title="Cast" message="Loading cast details..." />
                     ) : null}
                     {crewHighlights?.length ? (
                       <PeoplePanel title="Crew" people={crewHighlights} />
+                    ) : isEditorialLoading ? (
+                      <LoadingPanel title="Crew" message="Loading director and crew details..." />
                     ) : null}
                   </div>
                 ) : null}
@@ -722,26 +758,48 @@ export default function ModernMovieDetailsModal({
                   )}
                 </div>
 
-                {editorialDetails?.similar.length ? (
+                {(isSimilarLoading || similarItems.length > 0) ? (
                   <div className="rounded-2xl border border-white/10 bg-white/5 p-4">
                     <div className="mb-4">
                       <h3 className="text-xl font-bold text-white">{isSeries ? 'Similar TV Shows' : 'Similar Movies'}</h3>
-                      <p className="mt-1 text-sm text-gray-400">Editorial picks from the similar-title feed, with short context for discovery.</p>
+                      <p className="mt-1 text-sm text-gray-400">
+                        {isSimilarLoading ? 'Loading similar titles from the recommendation feed...' : 'Editorial picks from the similar-title feed, with short context for discovery.'}
+                      </p>
                     </div>
-                    <div className="grid grid-cols-1 gap-3 min-[380px]:grid-cols-2 sm:grid-cols-3 lg:grid-cols-4">
-                      {editorialDetails.similar.map((item) => (
-                        <div key={`${item.imdb_id || item.id}-${item.title}`} className="overflow-hidden rounded-2xl border border-white/10 bg-black/35">
-                          <img src={getImageUrl(item.poster_path)} alt={getContentTitle(item)} className="aspect-[2/3] w-full object-cover" loading="lazy" />
-                          <div className="p-3">
-                            <p className="line-clamp-2 text-sm font-semibold text-white">{getContentTitle(item)}</p>
-                            <p className="mt-1 text-xs text-gray-400">{getContentYear(item)} | {getGenreNames(item.genre_ids) || getContentTypeLabel(item)}</p>
-                            <p className="mt-2 line-clamp-3 text-xs leading-relaxed text-gray-300">
-                              {getContentTitle(item)} is a useful next pick for viewers who want a related tone, genre, or story rhythm after {title}.
-                            </p>
+                    {isSimilarLoading ? (
+                      <div className="rounded-2xl border border-white/10 bg-black/35 p-4 text-sm text-gray-300">Similar titles are loading...</div>
+                    ) : (
+                      <div className="grid grid-cols-1 gap-3 min-[380px]:grid-cols-2 sm:grid-cols-3 lg:grid-cols-4">
+                        {similarItems.map((item) => (
+                          <div key={`${item.imdb_id || item.id}-${item.title}`} className="overflow-hidden rounded-2xl border border-white/10 bg-black/35">
+                            <img src={getImageUrl(item.poster_path)} alt={getContentTitle(item)} className="aspect-[2/3] w-full object-cover" loading="lazy" />
+                            <div className="p-3">
+                              <p className="line-clamp-2 text-sm font-semibold text-white">{getContentTitle(item)}</p>
+                              <p className="mt-1 text-xs text-gray-400">{getContentYear(item)} | {getGenreNames(item.genre_ids) || getContentTypeLabel(item)}</p>
+                              <p className="mt-2 line-clamp-3 text-xs leading-relaxed text-gray-300">
+                                {getContentTitle(item)} is a useful next pick for viewers who want a related tone, genre, or story rhythm after {title}.
+                              </p>
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  if (onPlaySimilar) {
+                                    onPlaySimilar(item, 1, 1);
+                                    return;
+                                  }
+
+                                  window.open(getVidsrcUrl(item, 1, 1, currentSource), '_blank', 'noreferrer');
+                                }}
+                                className="mt-3 inline-flex min-h-9 w-full items-center justify-center gap-2 rounded-xl bg-white px-3 py-2 text-xs font-semibold text-black transition-colors hover:bg-gray-200"
+                                aria-label={`Play ${getContentTitle(item)} now`}
+                              >
+                                <Play className="h-3.5 w-3.5 fill-black" />
+                                Play Now
+                              </button>
+                            </div>
                           </div>
-                        </div>
-                      ))}
-                    </div>
+                        ))}
+                      </div>
+                    )}
                   </div>
                 ) : null}
 
@@ -868,6 +926,18 @@ function PeoplePanel({ title, people }: { title: string; people: Array<{ name: s
             </div>
           </div>
         ))}
+      </div>
+    </div>
+  );
+}
+
+function LoadingPanel({ title, message }: { title: string; message: string }) {
+  return (
+    <div className="rounded-2xl border border-white/10 bg-white/5 p-4">
+      <h3 className="mb-4 text-xl font-bold text-white">{title}</h3>
+      <div className="flex items-center gap-2 rounded-2xl bg-black/35 p-4 text-sm text-gray-300">
+        <LoaderCircle className="h-4 w-4 animate-spin" />
+        {message}
       </div>
     </div>
   );
