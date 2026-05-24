@@ -1,10 +1,11 @@
-import { useState, useEffect, useMemo, useCallback } from 'react';
+import { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import { Search } from 'lucide-react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import ModernFeaturedHero from '../../components/movies/ModernFeaturedHero';
 import ModernMovieCarousel from '../../components/movies/ModernMovieCarousel';
 import ModernMovieDetailsModal from '../../components/movies/ModernMovieDetailsModal';
 import ModernMovieCard from '../../components/movies/ModernMovieCard';
+import { LoadingSpinner } from '../../components/common/LoadingStates';
 import OptimizedSearch from '../../components/search/OptimizedSearch';
 import GenreSearch from '../../components/search/GenreSearch';
 import SophisticatedSidePanels from '../../components/layout/SophisticatedSidePanels';
@@ -65,11 +66,14 @@ export default function HomePage({ navigateTo }: HomePageProps = {}) {
   const navigationState = location.state as HomeNavigationState | null;
 
   const [selectedGenre, setSelectedGenre] = useState<number>(0);
+  const [isSearchLoading, setIsSearchLoading] = useState(false);
   const [tvShows, setTVShows] = useState<ContentData[]>([]);
   const [animations, setAnimations] = useState<ContentData[]>([]);
   const [newReleases, setNewReleases] = useState<ContentData[]>([]);
   const [activeTab, setActiveTab] = useState<'movies' | 'tv' | 'animations'>('movies');
-  const showBackToHomeNavbar = !!searchQuery || selectedGenre > 0;
+  const searchRequestRef = useRef(0);
+  const hasActiveSearch = searchQuery.trim().length > 0;
+  const showBackToHomeNavbar = hasActiveSearch || selectedGenre > 0;
   const currentMovieSlug = location.pathname.match(/^\/movies\/([^/]+)$/)?.[1];
   const currentGenreSlug = location.pathname.match(/^\/genres\/([^/]+)$/)?.[1];
   const currentListSlug = location.pathname.match(/^\/lists\/([^/]+)$/)?.[1];
@@ -146,9 +150,11 @@ export default function HomePage({ navigateTo }: HomePageProps = {}) {
   }, [allBrowseContent, movieNewReleases]);
 
   const handleGenreSelect = (genreId: number) => {
+    searchRequestRef.current += 1;
     setSearchQuery('');
     setSearchResults([]);
     setIsSearching(false);
+    setIsSearchLoading(false);
     setSelectedGenre(genreId);
     const genreSlug = createSlug(genreMap[genreId] || 'genre');
     if (genreId > 0 && location.pathname !== `/genres/${genreSlug}`) {
@@ -165,21 +171,32 @@ export default function HomePage({ navigateTo }: HomePageProps = {}) {
     openMovieDetails(movie, shouldAutoplay);
   }, [location.pathname, navigate, openMovieDetails]);
 
-  const handleOptimizedSearch = async (query: string) => {
+  const handleOptimizedSearch = useCallback(async (query: string) => {
+    const trimmedQuery = query.trim();
+    const requestId = searchRequestRef.current + 1;
+    searchRequestRef.current = requestId;
     setSearchQuery(query);
     
-    if (!query.trim()) {
+    if (!trimmedQuery) {
       setSearchResults([]);
       setIsSearching(false);
+      setIsSearchLoading(false);
       return;
     }
 
-    const results = await searchAllContent(query);
     setSelectedGenre(0);
-    setSearchResults(results);
     setIsSearching(true);
+    setIsSearchLoading(true);
+    const results = await searchAllContent(trimmedQuery);
+
+    if (searchRequestRef.current !== requestId) {
+      return;
+    }
+
+    setSearchResults(results);
+    setIsSearchLoading(false);
     window.scrollTo({ top: 0, behavior: 'smooth' });
-  };
+  }, [setIsSearching, setSearchQuery, setSearchResults]);
 
   // Fetch all content types on mount
   useEffect(() => {
@@ -210,10 +227,12 @@ export default function HomePage({ navigateTo }: HomePageProps = {}) {
       }
     }
 
+    searchRequestRef.current += 1;
     setSelectedGenre(0);
     setSearchQuery('');
     setSearchResults([]);
     setIsSearching(false);
+    setIsSearchLoading(false);
     resetToBrowse();
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
@@ -226,7 +245,7 @@ export default function HomePage({ navigateTo }: HomePageProps = {}) {
   };
 
   const filteredResults = useMemo(() => {
-    if (!searchQuery || searchResults.length === 0) {
+    if (!hasActiveSearch || searchResults.length === 0) {
       return [];
     }
 
@@ -240,25 +259,7 @@ export default function HomePage({ navigateTo }: HomePageProps = {}) {
       return (b.vote_average || 0) - (a.vote_average || 0);
     });
     return filtered;
-  }, [searchQuery, searchResults]);
-
-  useEffect(() => {
-    if (!searchQuery.trim()) {
-      return;
-    }
-
-    let cancelled = false;
-
-    void searchAllContent(searchQuery).then((results) => {
-      if (cancelled) return;
-      setSearchResults(results);
-      setIsSearching(true);
-    });
-
-    return () => {
-      cancelled = true;
-    };
-  }, [searchQuery, setIsSearching, setSearchResults]);
+  }, [hasActiveSearch, searchResults]);
 
   useEffect(() => {
     if (!navigationState?.selectedMovie || selectedMovie) {
@@ -274,6 +275,7 @@ export default function HomePage({ navigateTo }: HomePageProps = {}) {
     setSearchQuery('');
     setSearchResults([]);
     setIsSearching(false);
+    setIsSearchLoading(false);
     setActiveTab(
       matchedMovie.media_type === 'tv'
         ? 'tv'
@@ -291,6 +293,7 @@ export default function HomePage({ navigateTo }: HomePageProps = {}) {
     openMovieDetails,
     selectedMovie,
     setIsSearching,
+    setIsSearchLoading,
     setSearchQuery,
     setSearchResults,
   ]);
@@ -302,19 +305,23 @@ export default function HomePage({ navigateTo }: HomePageProps = {}) {
     if (!matchedGenreId) return;
 
     const genreId = Number(matchedGenreId);
+    searchRequestRef.current += 1;
     setSearchQuery('');
     setSearchResults([]);
     setIsSearching(false);
+    setIsSearchLoading(false);
     setSelectedGenre(genreId);
   }, [currentGenreSlug, setIsSearching, setSearchQuery, setSearchResults]);
 
   useEffect(() => {
     if (!currentListSlug) return;
 
+    searchRequestRef.current += 1;
     setSelectedGenre(0);
     setSearchQuery('');
     setSearchResults([]);
     setIsSearching(false);
+    setIsSearchLoading(false);
 
     window.setTimeout(() => {
       document.getElementById(`list-${currentListSlug}`)?.scrollIntoView({ behavior: 'smooth', block: 'start' });
@@ -353,11 +360,11 @@ export default function HomePage({ navigateTo }: HomePageProps = {}) {
         onBackToHome={() => {
           handleBackToHome();
         }}
-        label={selectedGenre > 0 ? 'Back to Home' : 'Back to Search'}
+        label={selectedGenre > 0 ? 'Back to Home' : 'Return to Browse'}
       />
 
       {/* Navigation Tabs and Search */}
-      <div className={`relative z-10 px-3 py-5 sm:px-6 sm:py-6 lg:px-8 ${showBackToHomeNavbar ? 'pt-6 sm:pt-8' : 'pt-18 sm:pt-20'}`}>
+      <div className={`relative z-10 px-3 py-5 sm:px-6 sm:py-6 lg:px-8 ${showBackToHomeNavbar ? 'pt-24 sm:pt-28' : 'pt-20 sm:pt-24'}`}>
         <h1 className="mb-5 text-3xl font-black tracking-tight text-white sm:text-4xl lg:text-5xl">
           Watch Movie Night Picks
         </h1>
@@ -405,7 +412,16 @@ export default function HomePage({ navigateTo }: HomePageProps = {}) {
         </div>
       </div>
 
-      {searchQuery && filteredResults.length > 0 ? (
+      {hasActiveSearch && isSearchLoading ? (
+        <div className="px-3 py-16 text-center sm:px-6 sm:py-20 lg:px-8">
+          <div className="mx-auto flex max-w-md flex-col items-center rounded-[28px] border border-white/10 bg-black/45 px-6 py-10 shadow-2xl shadow-black/25 backdrop-blur-xl">
+            <LoadingSpinner size="lg" text="Searching titles..." />
+            <p className="mt-4 text-sm text-gray-400">
+              Looking for matches for "{searchQuery.trim()}".
+            </p>
+          </div>
+        </div>
+      ) : hasActiveSearch && filteredResults.length > 0 ? (
         <div className="px-3 sm:px-6 lg:px-8">
           <div className="mb-6 rounded-[28px] border border-white/10 bg-black/45 px-5 py-5 shadow-2xl shadow-black/25 backdrop-blur-xl">
             <h2 className="text-2xl font-bold text-white mb-2">Search Results</h2>
@@ -426,7 +442,7 @@ export default function HomePage({ navigateTo }: HomePageProps = {}) {
             ))}
           </div>
         </div>
-      ) : searchQuery ? (
+      ) : hasActiveSearch ? (
         <div className="px-3 py-16 text-center sm:px-6 sm:py-20 lg:px-8">
           <div className="mx-auto mb-6 flex h-20 w-20 items-center justify-center rounded-full bg-gray-800">
             <Search className="w-10 h-10 text-gray-600" />

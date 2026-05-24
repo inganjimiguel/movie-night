@@ -1,5 +1,5 @@
 import { motion, AnimatePresence } from 'motion/react';
-import { Home } from 'lucide-react';
+import { ArrowLeft } from 'lucide-react';
 
 interface BackToHomeNavbarProps {
   isVisible: boolean;
@@ -25,7 +25,7 @@ export default function BackToHomeNavbar({ isVisible, onBackToHome, label = 'Bac
                 onClick={onBackToHome}
                 className="flex items-center gap-2 px-6 py-2 bg-red-600 hover:bg-red-700 rounded-lg transition-colors"
               >
-                <Home className="w-4 h-4 text-white" />
+                <ArrowLeft className="w-4 h-4 text-white" />
                 <span className="text-white font-medium">{label}</span>
               </motion.button>
             </div>
