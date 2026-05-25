@@ -3,6 +3,7 @@ import { motion } from 'motion/react';
 import { Calendar, Clock, Play, Star } from 'lucide-react';
 import Badge from '../common/Badge';
 import {
+  getContentTypeLabel,
   getContentTitle,
   getContentYear,
   getImageUrl,
@@ -79,8 +80,13 @@ export default function ModernFeaturedHero({
 
   const title = getContentTitle(movie);
   const year = getContentYear(movie);
-  const typeLabel = isTvLikeContent(movie) ? 'Series' : 'Movie';
-  const playLabel = isTvLikeContent(movie) ? 'Play Series' : 'Play Now';
+  const contentTypeLabel = getContentTypeLabel(movie);
+  const typeLabel = isTvLikeContent(movie) ? 'Series' : contentTypeLabel;
+  const playLabel = isTvLikeContent(movie)
+    ? 'Play Series'
+    : contentTypeLabel === 'Animation'
+      ? 'Play Animation'
+      : 'Play Now';
   const activeTrailerUrl = trailerUrl && isTrailerVisible ? trailerUrl : null;
   const trailerStatus = useMemo(() => {
     if (isTrailerLoading) return 'Loading trailer preview...';

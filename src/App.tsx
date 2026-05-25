@@ -50,7 +50,7 @@ export default function App() {
         title={pageSeo.title}
         description={pageSeo.description}
         keywords={pageSeo.keywords}
-        url={`https://movienight.com${location.pathname}`}
+        url={`https://movienight.giize.com${location.pathname}`}
       />
 
       <motion.button
