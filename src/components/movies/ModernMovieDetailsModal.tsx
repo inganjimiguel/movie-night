@@ -337,11 +337,14 @@ export default function ModernMovieDetailsModal({
   };
 
   const buildDownloadName = () => {
-    const safeTitle = title.replace(/[<>:"/\\|?*\u0000-\u001F]/g, '').trim() || 'Movie';
+    const safeTitle = title.replace(/[<>:"/\\|?*\u0000-\u001F]/g, '').replace(/\s+/g, ' ').trim() || 'Movie';
+    const signature = 'MovieNight';
+
     if (isSeries) {
-      return `${safeTitle}-S${String(effectiveSeason).padStart(2, '0')}E${String(effectiveEpisode).padStart(2, '0')}-MovieNight.mp4`;
+      return `${signature} - ${safeTitle} - S${String(effectiveSeason).padStart(2, '0')}E${String(effectiveEpisode).padStart(2, '0')}.mp4`;
     }
-    return `${safeTitle}-MovieNight.mp4`;
+
+    return `${signature} - ${safeTitle}.mp4`;
   };
 
   const triggerBrowserDownload = (url: string, fileName: string) => {
