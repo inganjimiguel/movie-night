@@ -2,6 +2,7 @@ import { lazy, Suspense, useEffect, useState } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { ChevronDown, ChevronUp, Heart, Sparkles } from 'lucide-react';
 import { useLocation } from 'react-router-dom';
+import { ContinueWatchingProvider } from './contexts/ContinueWatchingContext';
 import { MediaLibraryProvider } from './contexts/MediaLibraryContext';
 import AppRouter from './components/layout/AppRouter';
 import SEOHead from './components/seo/SEOHead';
@@ -122,11 +123,13 @@ export default function App() {
       </AnimatePresence>
 
       <MediaLibraryProvider>
-        <div className="min-h-screen flex flex-col">
-          {isHomePage && null}
-          <AppRouter />
-          <Footer />
-        </div>
+        <ContinueWatchingProvider>
+          <div className="min-h-screen flex flex-col">
+            {isHomePage && null}
+            <AppRouter />
+            <Footer />
+          </div>
+        </ContinueWatchingProvider>
       </MediaLibraryProvider>
     </>
   );
@@ -166,6 +169,12 @@ function getPageSeo(pathname: string) {
         title: 'Liked Movies and Shows | Movie Night',
         description: 'Review the movies, TV shows, and animations you liked on Movie Night so your next watch is easy to find.',
         keywords: 'liked movies, saved shows, favorite streaming titles, Movie Night liked titles'
+      };
+    case '/continue-watching':
+      return {
+        title: 'Continue Watching | Movie Night',
+        description: 'Resume movies, TV shows, and animations you already started on Movie Night with saved source and episode details.',
+        keywords: 'continue watching, resume movie, resume TV show, saved playback, Movie Night continue watching'
       };
     case '/queue':
       return {

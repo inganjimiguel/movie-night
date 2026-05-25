@@ -1,6 +1,8 @@
 import {useEffect, useRef, useState, type FormEvent} from 'react';
+import { useContinueWatching } from '../contexts/ContinueWatchingContext';
 import {
   DEFAULT_VIDEO_SOURCE,
+  getContentStorageKey,
   getTrendingMovies,
   hydrateContentForDetails,
   searchAllContent,
@@ -16,10 +18,13 @@ const PLAYER_READY_GRACE_MS = 1800;
 const PLAYER_LOAD_TIMEOUT_MS = 12000;
 
 export default function useMovieBrowser() {
+  const { recordPlaybackStart, touchEntry } = useContinueWatching();
   const [movies, setMovies] = useState<MovieData[]>([]);
   const [searchResults, setSearchResults] = useState<ContentData[]>([]);
   const [featured, setFeatured] = useState<MovieData | null>(null);
   const [selectedMovie, setSelectedMovie] = useState<MovieData | null>(null);
+  const [selectedSeason, setSelectedSeason] = useState(1);
+  const [selectedEpisode, setSelectedEpisode] = useState(1);
   const [isPlaying, setIsPlaying] = useState(false);
   const [playerUrl, setPlayerUrl] = useState<string | null>(null);
   const [playerError, setPlayerError] = useState<string | null>(null);
@@ -90,11 +95,15 @@ export default function useMovieBrowser() {
     clearPlayerTimeout();
     setPlayerError(null);
     setIsPlayerLoading(true);
+    setCurrentSource(source);
+    setSelectedSeason(Math.max(1, season));
+    setSelectedEpisode(Math.max(1, episode));
     const hydratedMovie = await hydrateContentForDetails(movie);
     setSelectedMovie(hydratedMovie);
     const vidsrcUrl = getVidsrcUrl(hydratedMovie, season, episode, source);
     setPlayerUrl(vidsrcUrl);
     setIsPlaying(true);
+    recordPlaybackStart(hydratedMovie, { source, season, episode });
     playerTimeoutRef.current = window.setTimeout(() => {
       setIsPlayerLoading(false);
       setPlayerError(`Playback is taking longer than expected on ${getVideoSourceName(source)}. Try switching sources.`);
@@ -108,28 +117,42 @@ export default function useMovieBrowser() {
     }, PLAYER_READY_GRACE_MS);
   };
 
-  const openMovieDetails = (movie: MovieData, shouldAutoplay = false) => {
+  const openMovieDetails = (
+    movie: MovieData,
+    shouldAutoplay = false,
+    season = 1,
+    episode = 1,
+    source: VideoSource = currentSource
+  ) => {
     clearPlayerTimeout();
     setSelectedMovie(movie);
+    setSelectedSeason(Math.max(1, season));
+    setSelectedEpisode(Math.max(1, episode));
     setIsPlaying(false);
     setPlayerUrl(null);
     setPlayerError(null);
     setIsPlayerLoading(false);
+    setCurrentSource(source);
+    touchEntry(movie, { source, season, episode });
 
     void hydrateContentForDetails(movie).then((hydratedMovie) => {
-      setSelectedMovie((currentMovie) => (currentMovie?.id === movie.id ? hydratedMovie : currentMovie));
+      setSelectedMovie((currentMovie) => (
+        currentMovie && getContentStorageKey(currentMovie) === getContentStorageKey(movie) ? hydratedMovie : currentMovie
+      ));
     });
 
     if (shouldAutoplay) {
       // Set loading state immediately for instant feedback
       setIsPlayerLoading(true);
-      void playMovie(movie);
+      void playMovie(movie, season, episode, source);
     }
   };
 
   const closeMovieDetails = () => {
     clearPlayerTimeout();
     setSelectedMovie(null);
+    setSelectedSeason(1);
+    setSelectedEpisode(1);
     setIsPlaying(false);
     setPlayerUrl(null);
     setPlayerError(null);
@@ -158,6 +181,8 @@ export default function useMovieBrowser() {
     searchQuery,
     searchResults,
     selectedMovie,
+    selectedSeason,
+    selectedEpisode,
     closeMovieDetails,
     handleSearch,
     openMovieDetails,

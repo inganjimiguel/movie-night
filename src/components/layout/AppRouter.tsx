@@ -2,6 +2,7 @@ import { lazy, Suspense } from 'react';
 import { Navigate, Route, Routes, useNavigate } from 'react-router-dom';
 
 const HomePage = lazy(() => import('../../pages/home/HomePage'));
+const ContinueWatchingPage = lazy(() => import('../../pages/continue-watching/ContinueWatchingPage'));
 const LikedPage = lazy(() => import('../../pages/liked/LikedPage'));
 const QueuePage = lazy(() => import('../../pages/queue/QueuePage'));
 const TVShowsPage = lazy(() => import('../../pages/tvshows/TVShowsPage'));
@@ -15,6 +16,7 @@ export default function AppRouter() {
         <Route path="/movies/:movieSlug" element={<HomeRoute />} />
         <Route path="/genres/:genreSlug" element={<HomeRoute />} />
         <Route path="/lists/:listSlug" element={<HomeRoute />} />
+        <Route path="/continue-watching" element={<ContinueWatchingRoute />} />
         <Route path="/liked" element={<LikedRoute />} />
         <Route path="/queue" element={<QueueRoute />} />
         <Route path="/tv-shows" element={<TVShowsPage />} />
@@ -45,6 +47,12 @@ function LikedRoute() {
   const navigate = useNavigate();
 
   return <LikedPage navigateTo={(path) => void navigate(path)} />;
+}
+
+function ContinueWatchingRoute() {
+  const navigate = useNavigate();
+
+  return <ContinueWatchingPage navigateTo={(path) => void navigate(path)} />;
 }
 
 function QueueRoute() {

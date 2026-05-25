@@ -1,6 +1,7 @@
 import { motion, AnimatePresence } from 'motion/react';
-import { Clapperboard, Clock3, Heart } from 'lucide-react';
+import { Clapperboard, Clock3, Heart, PlayCircle } from 'lucide-react';
 import { useState, type ReactNode } from 'react';
+import { useContinueWatching } from '../../contexts/ContinueWatchingContext';
 import { useMediaLibrary } from '../../contexts/MediaLibraryContext';
 
 interface SophisticatedSidePanelsProps {
@@ -8,8 +9,9 @@ interface SophisticatedSidePanelsProps {
 }
 
 export default function SophisticatedSidePanels({ navigateTo }: SophisticatedSidePanelsProps = {}) {
-  const [hoveredButton, setHoveredButton] = useState<'liked' | 'queue' | 'trailers' | null>(null);
+  const [hoveredButton, setHoveredButton] = useState<'liked' | 'continue' | 'queue' | 'trailers' | null>(null);
   const { likedItems, queuedItems } = useMediaLibrary();
+  const { entries } = useContinueWatching();
 
   const handleNavigate = (path: string) => {
     if (navigateTo) {
@@ -36,6 +38,19 @@ export default function SophisticatedSidePanels({ navigateTo }: SophisticatedSid
             onFocus={() => setHoveredButton('liked')}
             onHoverEnd={() => setHoveredButton(null)}
             onHoverStart={() => setHoveredButton('liked')}
+          />
+
+          <ShortcutButton
+            badgeCount={entries.length}
+            colorClass="hover:bg-sky-600/80"
+            hovered={hoveredButton === 'continue'}
+            icon={<PlayCircle className="h-4 w-4 sm:h-5 sm:w-5" />}
+            label="Continue Watching"
+            onBlur={() => setHoveredButton(null)}
+            onClick={() => handleNavigate('/continue-watching')}
+            onFocus={() => setHoveredButton('continue')}
+            onHoverEnd={() => setHoveredButton(null)}
+            onHoverStart={() => setHoveredButton('continue')}
           />
 
           <ShortcutButton

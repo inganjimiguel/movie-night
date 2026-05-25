@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { AnimatePresence, motion } from 'motion/react';
 import {
   AlertCircle,
+  Check,
   Clock,
   Download,
   Heart,
@@ -14,6 +15,7 @@ import {
   Tv2,
   X,
 } from 'lucide-react';
+import { useContinueWatching } from '../../contexts/ContinueWatchingContext';
 import Badge from '../common/Badge';
 import VideoSourceSelector from '../video/VideoSourceSelector';
 import VideoLoadingBanner from '../ui/VideoLoadingBanner';
@@ -26,6 +28,7 @@ import {
   getGenreNames,
   getImageUrl,
   getSimilarContentForDetails,
+  getVideoSourceName,
   getTvEpisodeDetails,
   getTvShowDetails,
   getVidsrcUrl,
@@ -40,6 +43,8 @@ import { useMediaLibrary } from '../../contexts/MediaLibraryContext';
 
 interface ModernMovieDetailsModalProps {
   movie: MovieData | null;
+  initialSeason?: number;
+  initialEpisode?: number;
   isPlaying: boolean;
   isPlayerLoading: boolean;
   playerError: string | null;
@@ -55,6 +60,8 @@ interface ModernMovieDetailsModalProps {
 
 export default function ModernMovieDetailsModal({
   movie,
+  initialSeason = 1,
+  initialEpisode = 1,
   isPlaying,
   isPlayerLoading,
   playerError,
@@ -78,6 +85,7 @@ export default function ModernMovieDetailsModal({
   const [downloadMessage, setDownloadMessage] = useState<string | null>(null);
 
   const { hasLikedItem, toggleLikedItem, hasQueuedItem, toggleQueuedItem } = useMediaLibrary();
+  const { getEntry, markAsWatched, removeEntry, markEpisodeWatched } = useContinueWatching();
 
   const title = movie ? getContentTitle(movie) : '';
   const releaseDate = movie ? getContentReleaseDate(movie) : '';
@@ -87,6 +95,7 @@ export default function ModernMovieDetailsModal({
   const detailsRequestKey = movie ? `${isSeries ? 'tv' : 'movie'}:${movie.id}` : '';
   const isLiked = movie ? hasLikedItem(movie) : false;
   const isInQueue = movie ? hasQueuedItem(movie) : false;
+  const continueWatchingEntry = movie ? getEntry(movie) : undefined;
 
   const availableSeasons = useMemo(
     () => (tvDetails?.seasons ?? []).filter((season) => season.season_number > 0 && season.episode_count > 0),
@@ -115,6 +124,12 @@ export default function ModernMovieDetailsModal({
   const crewHighlights = editorialDetails?.crew
     .filter((person) => /director|creator|showrunner|screenplay|writer|producer/i.test(person.role))
     .slice(0, 4);
+  const watchedEpisodes = continueWatchingEntry?.watchedEpisodes ?? [];
+  const watchedEpisodeKeys = useMemo(
+    () => new Set(watchedEpisodes.map((entry) => `${entry.season}:${entry.episode}`)),
+    [watchedEpisodes]
+  );
+  const watchedCount = watchedEpisodes.length;
   const downloadTargetUrl = movie
     ? (
         isSeries
@@ -122,6 +137,13 @@ export default function ModernMovieDetailsModal({
           : getVidsrcUrl(movie, 1, 1, 'sflix')
       )
     : null;
+
+  useEffect(() => {
+    if (!movie) return;
+
+    setSelectedSeason(Math.max(1, initialSeason));
+    setSelectedEpisode(Math.max(1, initialEpisode));
+  }, [detailsRequestKey, initialEpisode, initialSeason, movie]);
 
   useEffect(() => {
     if (!movie) return;
@@ -159,8 +181,8 @@ export default function ModernMovieDetailsModal({
     setEpisodeDetails(null);
     setEditorialDetails(null);
     setSimilarItems([]);
-    setSelectedSeason(1);
-    setSelectedEpisode(1);
+    setSelectedSeason(Math.max(1, initialSeason));
+    setSelectedEpisode(Math.max(1, initialEpisode));
     setIsEpisodeLoading(false);
     setIsEditorialLoading(true);
     setIsSimilarLoading(true);
@@ -208,9 +230,14 @@ export default function ModernMovieDetailsModal({
       if (cancelled || !details) return;
       setTvDetails(details);
       const firstSeason = details.seasons.find((season) => season.season_number > 0 && season.episode_count > 0);
-      if (firstSeason) {
-        setSelectedSeason(firstSeason.season_number);
-        setSelectedEpisode(1);
+      const preferredSeason = details.seasons.find(
+        (season) => season.season_number === Math.max(1, initialSeason) && season.season_number > 0 && season.episode_count > 0
+      );
+      const targetSeason = preferredSeason ?? firstSeason;
+
+      if (targetSeason) {
+        setSelectedSeason(targetSeason.season_number);
+        setSelectedEpisode(Math.max(1, initialEpisode));
       }
     });
 
@@ -221,7 +248,7 @@ export default function ModernMovieDetailsModal({
       document.title = previousTitle;
       metaDescription.setAttribute('content', previousDescription);
     };
-  }, [detailsRequestKey]);
+  }, [detailsRequestKey, initialEpisode, initialSeason]);
 
   useEffect(() => {
     if (!selectedSeasonData) return;
@@ -403,6 +430,48 @@ export default function ModernMovieDetailsModal({
     }
 
     onSourceChange(source);
+  };
+
+  const getNextEpisodeTarget = () => {
+    if (!selectedSeasonData) {
+      return null;
+    }
+
+    if (effectiveEpisode < selectedSeasonData.episode_count) {
+      return {
+        season: effectiveSeason,
+        episode: effectiveEpisode + 1,
+      };
+    }
+
+    const currentSeasonIndex = availableSeasons.findIndex((season) => season.season_number === effectiveSeason);
+    const nextSeason = availableSeasons[currentSeasonIndex + 1];
+    if (!nextSeason) {
+      return null;
+    }
+
+    return {
+      season: nextSeason.season_number,
+      episode: 1,
+    };
+  };
+
+  const handleMarkSelectedEpisodeWatched = () => {
+    if (!movie || !isSeries) return;
+
+    const nextTarget = getNextEpisodeTarget();
+    markEpisodeWatched(movie, {
+      season: effectiveSeason,
+      episode: effectiveEpisode,
+      source: currentSource,
+      resumeSeason: nextTarget?.season ?? effectiveSeason,
+      resumeEpisode: nextTarget?.episode ?? effectiveEpisode,
+    });
+
+    if (nextTarget) {
+      setSelectedSeason(nextTarget.season);
+      setSelectedEpisode(nextTarget.episode);
+    }
   };
 
   return (
@@ -591,6 +660,62 @@ export default function ModernMovieDetailsModal({
                   />
                 </div>
 
+                {continueWatchingEntry && (
+                  <div className="rounded-2xl border border-sky-500/20 bg-sky-500/10 p-4">
+                    <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
+                      <div>
+                        <h3 className="text-lg font-semibold text-white">Continue Watching</h3>
+                        <p className="mt-1 text-sm text-sky-100/80">
+                          {continueWatchingEntry.isSeries
+                            ? `Resume from Season ${continueWatchingEntry.season ?? 1}, Episode ${continueWatchingEntry.episode ?? 1}, with ${watchedCount} watched ${watchedCount === 1 ? 'episode' : 'episodes'} already marked.`
+                            : 'This movie is saved in your in-progress rail so you can jump back in quickly.'}
+                        </p>
+                      </div>
+                      <div className="rounded-full bg-black/30 px-3 py-1 text-sm text-white">
+                        Last source: {getVideoSourceName(continueWatchingEntry.lastSource)}
+                      </div>
+                    </div>
+
+                    <div className="grid gap-3 lg:grid-cols-[minmax(0,1fr)_auto] lg:items-center">
+                      <div className="rounded-2xl border border-white/10 bg-black/30 p-3 text-sm text-gray-200">
+                        <p className="font-medium text-white">
+                          {continueWatchingEntry.isSeries
+                            ? `Saved point: S${continueWatchingEntry.season ?? 1} • E${continueWatchingEntry.episode ?? 1}`
+                            : 'Saved point: Started movie'}
+                        </p>
+                        <p className="mt-1 text-gray-400">Last opened {formatLastOpened(continueWatchingEntry.lastOpenedAt)}</p>
+                        {continueWatchingEntry.isSeries && continueWatchingEntry.latestWatchedSeason && continueWatchingEntry.latestWatchedEpisode ? (
+                          <p className="mt-1 text-gray-400">
+                            Latest watched: S{continueWatchingEntry.latestWatchedSeason} â€¢ E{continueWatchingEntry.latestWatchedEpisode}
+                          </p>
+                        ) : null}
+                      </div>
+                      <div className="flex flex-wrap gap-3">
+                        <button
+                          type="button"
+                          onClick={() => markAsWatched(continueWatchingEntry.entryKey)}
+                          className="rounded-xl border border-emerald-500/30 bg-emerald-500/10 px-4 py-3 text-sm text-emerald-200 transition-colors hover:bg-emerald-500/20"
+                        >
+                          <span className="inline-flex items-center gap-2">
+                            <Check className="h-4 w-4" />
+                            Mark Watched
+                          </span>
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => removeEntry(continueWatchingEntry.entryKey)}
+                          className="rounded-xl border border-white/15 bg-white/5 px-4 py-3 text-sm text-gray-200 transition-colors hover:bg-white/10"
+                        >
+                          <span className="inline-flex items-center gap-2">
+                            <X className="h-4 w-4" />
+                            Remove
+                          </span>
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                )}
+
                 {isSeries && (
                   <div className="rounded-2xl border border-sky-500/20 bg-sky-500/10 p-4">
                     <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
@@ -607,41 +732,103 @@ export default function ModernMovieDetailsModal({
                       <div>
                         <p className="mb-2 text-sm text-gray-300">Seasons</p>
                         <div className="flex flex-wrap gap-2">
-                          {availableSeasons.map((season) => (
-                            <button
-                              key={season.season_number}
-                              onClick={() => {
-                                setSelectedSeason(season.season_number);
-                                setSelectedEpisode(1);
-                              }}
-                              className={`rounded-xl px-4 py-2 text-sm font-medium transition-colors ${
-                                effectiveSeason === season.season_number
-                                  ? 'bg-sky-500 text-white'
-                                  : 'border border-white/15 bg-black/35 text-gray-200 hover:bg-white/10'
-                              }`}
-                            >
-                              Season {season.season_number}
-                            </button>
-                          ))}
+                          {availableSeasons.map((season) => {
+                            const seasonNumber = season.season_number;
+                            const hasWatchedEpisodes = watchedEpisodes.some((entry) => entry.season === seasonNumber);
+                            const isLatestWatchedSeason = continueWatchingEntry?.latestWatchedSeason === seasonNumber;
+
+                            return (
+                              <button
+                                key={seasonNumber}
+                                onClick={() => {
+                                  setSelectedSeason(seasonNumber);
+                                  setSelectedEpisode(1);
+                                }}
+                                className={`rounded-xl px-4 py-2 text-sm font-medium transition-colors ${
+                                  effectiveSeason === seasonNumber
+                                    ? 'bg-sky-500 text-white'
+                                    : hasWatchedEpisodes
+                                      ? 'border border-emerald-400/25 bg-emerald-500/10 text-emerald-100 hover:bg-emerald-500/15'
+                                      : 'border border-white/15 bg-black/35 text-gray-200 hover:bg-white/10'
+                                }`}
+                              >
+                                <span className="inline-flex items-center gap-2">
+                                  Season {seasonNumber}
+                                  {isLatestWatchedSeason ? (
+                                    <span className="rounded-full bg-white/15 px-2 py-0.5 text-[10px] uppercase tracking-[0.16em] text-white">
+                                      Latest
+                                    </span>
+                                  ) : hasWatchedEpisodes ? (
+                                    <span className="rounded-full bg-emerald-500/20 px-2 py-0.5 text-[10px] uppercase tracking-[0.16em] text-emerald-100">
+                                      Watched
+                                    </span>
+                                  ) : null}
+                                </span>
+                              </button>
+                            );
+                          })}
                         </div>
                       </div>
 
                       <div>
                         <p className="mb-2 text-sm text-gray-300">Episodes</p>
                         <div className="flex max-h-52 flex-wrap gap-2 overflow-y-auto pr-1">
-                          {Array.from({ length: maxEpisode }, (_, index) => index + 1).map((episodeNumber) => (
-                            <button
-                              key={episodeNumber}
-                              onClick={() => setSelectedEpisode(episodeNumber)}
-                              className={`rounded-xl px-4 py-2 text-sm font-medium transition-colors ${
-                                effectiveEpisode === episodeNumber
-                                  ? 'bg-white text-black'
-                                  : 'border border-white/15 bg-black/35 text-gray-200 hover:bg-white/10'
-                              }`}
-                            >
-                              Episode {episodeNumber}
-                            </button>
-                          ))}
+                          {Array.from({ length: maxEpisode }, (_, index) => index + 1).map((episodeNumber) => {
+                            const episodeKey = `${effectiveSeason}:${episodeNumber}`;
+                            const isWatchedEpisode = watchedEpisodeKeys.has(episodeKey);
+                            const isLatestWatchedEpisode =
+                              continueWatchingEntry?.latestWatchedSeason === effectiveSeason &&
+                              continueWatchingEntry?.latestWatchedEpisode === episodeNumber;
+                            const isResumeEpisode =
+                              continueWatchingEntry?.season === effectiveSeason &&
+                              continueWatchingEntry?.episode === episodeNumber;
+
+                            return (
+                              <button
+                                key={episodeNumber}
+                                onClick={() => setSelectedEpisode(episodeNumber)}
+                                className={`rounded-xl px-4 py-2 text-sm font-medium transition-colors ${
+                                  effectiveEpisode === episodeNumber
+                                    ? 'bg-white text-black'
+                                    : isLatestWatchedEpisode
+                                      ? 'border border-emerald-300/40 bg-emerald-500/20 text-emerald-100 hover:bg-emerald-500/25'
+                                      : isResumeEpisode
+                                        ? 'border border-sky-300/35 bg-sky-500/20 text-sky-100 hover:bg-sky-500/25'
+                                        : isWatchedEpisode
+                                          ? 'border border-emerald-500/20 bg-emerald-500/10 text-emerald-100 hover:bg-emerald-500/15'
+                                          : 'border border-white/15 bg-black/35 text-gray-200 hover:bg-white/10'
+                                }`}
+                              >
+                                <span className="inline-flex items-center gap-2">
+                                  Episode {episodeNumber}
+                                  {isLatestWatchedEpisode ? (
+                                    <span className="rounded-full bg-emerald-500/25 px-2 py-0.5 text-[10px] uppercase tracking-[0.16em] text-emerald-100">
+                                      Latest
+                                    </span>
+                                  ) : isResumeEpisode ? (
+                                    <span className="rounded-full bg-sky-500/25 px-2 py-0.5 text-[10px] uppercase tracking-[0.16em] text-sky-100">
+                                      Resume
+                                    </span>
+                                  ) : isWatchedEpisode ? (
+                                    <span className="rounded-full bg-emerald-500/20 px-2 py-0.5 text-[10px] uppercase tracking-[0.16em] text-emerald-100">
+                                      Watched
+                                    </span>
+                                  ) : null}
+                                </span>
+                              </button>
+                            );
+                          })}
+                        </div>
+                        <div className="mt-3 flex flex-wrap gap-2 text-xs">
+                          <span className="rounded-full border border-emerald-500/20 bg-emerald-500/10 px-3 py-1 text-emerald-100">
+                            Watched
+                          </span>
+                          <span className="rounded-full border border-sky-300/25 bg-sky-500/10 px-3 py-1 text-sky-100">
+                            Resume
+                          </span>
+                          <span className="rounded-full border border-emerald-300/25 bg-emerald-500/20 px-3 py-1 text-emerald-100">
+                            Latest watched
+                          </span>
                         </div>
                       </div>
                     </div>
@@ -675,6 +862,15 @@ export default function ModernMovieDetailsModal({
                         className="rounded-xl bg-sky-600 px-4 py-3 font-medium text-white transition-colors hover:bg-sky-500"
                       >
                         Play Selected Episode
+                      </button>
+                      <button
+                        onClick={handleMarkSelectedEpisodeWatched}
+                        className="rounded-xl border border-emerald-500/30 bg-emerald-500/10 px-4 py-3 font-medium text-emerald-100 transition-colors hover:bg-emerald-500/20"
+                      >
+                        <span className="inline-flex items-center gap-2">
+                          <Check className="h-4 w-4" />
+                          Mark Selected Watched
+                        </span>
                       </button>
                     </div>
                   </div>
@@ -941,4 +1137,36 @@ function LoadingPanel({ title, message }: { title: string; message: string }) {
       </div>
     </div>
   );
+}
+
+function formatLastOpened(value: string) {
+  const openedAt = new Date(value);
+  const deltaMs = Date.now() - openedAt.getTime();
+
+  if (Number.isNaN(openedAt.getTime())) {
+    return 'recently';
+  }
+
+  const minutes = Math.floor(deltaMs / 60000);
+  if (minutes < 1) {
+    return 'just now';
+  }
+  if (minutes < 60) {
+    return `${minutes}m ago`;
+  }
+
+  const hours = Math.floor(minutes / 60);
+  if (hours < 24) {
+    return `${hours}h ago`;
+  }
+
+  const days = Math.floor(hours / 24);
+  if (days < 7) {
+    return `${days}d ago`;
+  }
+
+  return openedAt.toLocaleDateString(undefined, {
+    month: 'short',
+    day: 'numeric',
+  });
 }

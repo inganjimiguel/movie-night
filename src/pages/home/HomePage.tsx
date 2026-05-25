@@ -5,12 +5,15 @@ import ModernFeaturedHero from '../../components/movies/ModernFeaturedHero';
 import ModernMovieCarousel from '../../components/movies/ModernMovieCarousel';
 import ModernMovieDetailsModal from '../../components/movies/ModernMovieDetailsModal';
 import ModernMovieCard from '../../components/movies/ModernMovieCard';
+import ContinueWatchingRail from '../../components/movies/ContinueWatchingRail';
 import { LoadingSpinner } from '../../components/common/LoadingStates';
 import OptimizedSearch from '../../components/search/OptimizedSearch';
 import GenreSearch from '../../components/search/GenreSearch';
 import SophisticatedSidePanels from '../../components/layout/SophisticatedSidePanels';
 import BackToHomeNavbar from '../../components/layout/BackToHomeNavbar';
 import AllMovies from '../../components/movies/AllMovies';
+import type { ContinueWatchingEntry } from '../../contexts/ContinueWatchingContext';
+import { useContinueWatching } from '../../contexts/ContinueWatchingContext';
 import useMovieBrowser from '../../hooks/useMovieBrowser';
 import {
   createSlug,
@@ -25,7 +28,8 @@ import {
   genreMap,
   isAnimationContent,
   searchAllContent,
-  type ContentData
+  type ContentData,
+  type VideoSource,
 } from '../../services/movieService';
 import '../../styles/responsive.css';
 
@@ -36,11 +40,15 @@ interface HomePageProps {
 interface HomeNavigationState {
   autoplay?: boolean;
   selectedMovie?: ContentData;
+  season?: number;
+  episode?: number;
+  source?: VideoSource;
 }
 
 export default function HomePage({ navigateTo }: HomePageProps = {}) {
   const location = useLocation();
   const navigate = useNavigate();
+  const { entries: continueWatchingEntries, removeEntry, markAsWatched } = useContinueWatching();
   const {
     currentSource,
     featured,
@@ -53,6 +61,8 @@ export default function HomePage({ navigateTo }: HomePageProps = {}) {
     searchQuery,
     searchResults,
     selectedMovie,
+    selectedSeason,
+    selectedEpisode,
     closeMovieDetails,
     openMovieDetails,
     playMovie,
@@ -148,6 +158,17 @@ export default function HomePage({ navigateTo }: HomePageProps = {}) {
       weekend: (movieNewReleases.length ? movieNewReleases : allBrowseContent).slice(0, 4)
     };
   }, [allBrowseContent, movieNewReleases]);
+  const visibleContinueWatchingEntries = useMemo(() => continueWatchingEntries.slice(0, 10), [continueWatchingEntries]);
+
+  const syncTabWithItem = useCallback((item: ContentData) => {
+    setActiveTab(
+      item.media_type === 'tv'
+        ? 'tv'
+        : isAnimationContent(item)
+          ? 'animations'
+          : 'movies'
+    );
+  }, []);
 
   const handleGenreSelect = (genreId: number) => {
     searchRequestRef.current += 1;
@@ -163,13 +184,19 @@ export default function HomePage({ navigateTo }: HomePageProps = {}) {
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
-  const handleOpenMovieDetails = useCallback((movie: ContentData, shouldAutoplay = false) => {
+  const handleOpenMovieDetails = useCallback((
+    movie: ContentData,
+    shouldAutoplay = false,
+    season = 1,
+    episode = 1,
+    source = currentSource
+  ) => {
     const moviePath = `/movies/${getContentSlug(movie)}`;
     if (location.pathname !== moviePath) {
       void navigate(moviePath);
     }
-    openMovieDetails(movie, shouldAutoplay);
-  }, [location.pathname, navigate, openMovieDetails]);
+    openMovieDetails(movie, shouldAutoplay, season, episode, source);
+  }, [currentSource, location.pathname, navigate, openMovieDetails]);
 
   const handleOptimizedSearch = useCallback(async (query: string) => {
     const trimmedQuery = query.trim();
@@ -244,6 +271,28 @@ export default function HomePage({ navigateTo }: HomePageProps = {}) {
     }
   };
 
+  const handleResumeContinueWatching = useCallback((entry: ContinueWatchingEntry) => {
+    syncTabWithItem(entry.item);
+    handleOpenMovieDetails(
+      entry.item,
+      true,
+      entry.season ?? 1,
+      entry.episode ?? 1,
+      entry.lastSource
+    );
+  }, [handleOpenMovieDetails, syncTabWithItem]);
+
+  const handleOpenContinueWatchingDetails = useCallback((entry: ContinueWatchingEntry) => {
+    syncTabWithItem(entry.item);
+    handleOpenMovieDetails(
+      entry.item,
+      false,
+      entry.season ?? 1,
+      entry.episode ?? 1,
+      entry.lastSource
+    );
+  }, [handleOpenMovieDetails, syncTabWithItem]);
+
   const filteredResults = useMemo(() => {
     if (!hasActiveSearch || searchResults.length === 0) {
       return [];
@@ -283,10 +332,17 @@ export default function HomePage({ navigateTo }: HomePageProps = {}) {
           ? 'animations'
           : 'movies'
     );
-    openMovieDetails(matchedMovie, navigationState.autoplay ?? false);
+    openMovieDetails(
+      matchedMovie,
+      navigationState.autoplay ?? false,
+      navigationState.season ?? 1,
+      navigationState.episode ?? 1,
+      navigationState.source ?? currentSource
+    );
     window.scrollTo({ top: 0, behavior: 'smooth' });
     void navigate(`/movies/${getContentSlug(matchedMovie)}`, { replace: true, state: null });
   }, [
+    currentSource,
     allBrowseContent,
     navigate,
     navigationState,
@@ -494,6 +550,14 @@ export default function HomePage({ navigateTo }: HomePageProps = {}) {
             />
           )}
 
+          <ContinueWatchingRail
+            entries={visibleContinueWatchingEntries}
+            onResume={handleResumeContinueWatching}
+            onOpenDetails={handleOpenContinueWatchingDetails}
+            onRemove={(entry) => removeEntry(entry.entryKey)}
+            onMarkWatched={(entry) => markAsWatched(entry.entryKey)}
+          />
+
           <main className={`relative ${currentFeatured ? 'mt-8 sm:mt-10 lg:mt-12' : 'mt-6 sm:mt-8'} z-10 pb-20 sm:pb-24 space-y-10 sm:space-y-14 lg:space-y-20 w-full overflow-x-hidden`}>
             {activeTab === 'movies' && (
               <>
@@ -584,6 +648,8 @@ export default function HomePage({ navigateTo }: HomePageProps = {}) {
 
       <ModernMovieDetailsModal
         movie={selectedMovie}
+        initialSeason={selectedSeason}
+        initialEpisode={selectedEpisode}
         isPlaying={isPlaying}
         isPlayerLoading={isPlayerLoading}
         playerError={playerError}
@@ -593,6 +659,7 @@ export default function HomePage({ navigateTo }: HomePageProps = {}) {
         onClose={handleCloseMovieDetails}
         onPlay={(season, episode) => selectedMovie && void playMovie(selectedMovie, season, episode, currentSource)}
         onPlaySimilar={(similarMovie) => {
+          syncTabWithItem(similarMovie);
           handleOpenMovieDetails(similarMovie, true);
         }}
         onSourceChange={(source, season, episode) => {
