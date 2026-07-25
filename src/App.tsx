@@ -62,15 +62,15 @@ export default function App() {
         animate={{ opacity: 1, y: 0, scale: 1 }}
         whileHover={{ scale: 1.03, y: -2 }}
         whileTap={{ scale: 0.97 }}
-        className="group fixed right-3 top-[calc(env(safe-area-inset-top,0px)+84px)] z-[180] flex max-w-[calc(100vw-24px)] items-center gap-3 overflow-hidden rounded-full border border-red-200/20 bg-[linear-gradient(135deg,rgba(220,38,38,0.96),rgba(127,29,29,0.96))] px-3 py-2 text-left shadow-[0_16px_40px_rgba(127,29,29,0.35)] backdrop-blur-xl sm:right-5 sm:px-4 sm:py-3"
+        className="group fixed right-3 top-[calc(env(safe-area-inset-top,0px)+68px)] z-[180] flex max-w-[calc(100vw-24px)] items-center gap-2 overflow-hidden rounded-full border border-red-200/20 bg-[linear-gradient(135deg,rgba(220,38,38,0.96),rgba(127,29,29,0.96))] px-2 py-2 text-left shadow-[0_16px_40px_rgba(127,29,29,0.35)] backdrop-blur-xl sm:right-5 sm:top-[calc(env(safe-area-inset-top,0px)+84px)] sm:gap-3 sm:px-4 sm:py-3"
         onClick={() => setIsDonationModalOpen(true)}
         aria-label="Open support us popup"
       >
         <span className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_top,rgba(255,255,255,0.26),transparent_52%)] opacity-80" />
-        <span className="relative flex h-10 w-10 items-center justify-center rounded-full border border-white/20 bg-white/14 shadow-inner shadow-white/10">
-          <Heart className="h-5 w-5 fill-white text-white" />
+        <span className="relative flex h-9 w-9 items-center justify-center rounded-full border border-white/20 bg-white/14 shadow-inner shadow-white/10 sm:h-10 sm:w-10">
+          <Heart className="h-[18px] w-[18px] fill-white text-white sm:h-5 sm:w-5" />
         </span>
-        <span className="relative flex min-w-0 flex-col">
+        <span className="relative hidden min-w-0 flex-col min-[420px]:flex">
           <span className="flex items-center gap-1 text-[10px] font-semibold uppercase tracking-[0.28em] text-red-100/80">
             <Sparkles className="h-3 w-3" />
             Keep it rolling
@@ -94,14 +94,14 @@ export default function App() {
             initial={{ opacity: 0, x: 16, scale: 0.95 }}
             animate={{ opacity: 1, x: 0, scale: 1 }}
             exit={{ opacity: 0, x: 16, scale: 0.95 }}
-            className="fixed bottom-6 right-4 z-[120] flex flex-col gap-3 sm:bottom-8 sm:right-6"
+            className="fixed bottom-4 right-3 z-[120] flex flex-col gap-2 sm:bottom-8 sm:right-6 sm:gap-3"
           >
             {showScrollUpButton && (
               <motion.button
                 whileHover={{ scale: 1.06 }}
                 whileTap={{ scale: 0.95 }}
                 onClick={handleScrollToTop}
-                className="flex h-12 w-12 items-center justify-center rounded-full border border-white/15 bg-black/55 text-white shadow-xl backdrop-blur-md transition-colors hover:bg-red-600/85"
+                className="flex h-10 w-10 items-center justify-center rounded-full border border-white/15 bg-black/55 text-white shadow-xl backdrop-blur-md transition-colors hover:bg-red-600/85 sm:h-12 sm:w-12"
                 aria-label="Scroll to top"
                 title="Scroll to top"
               >
@@ -114,7 +114,7 @@ export default function App() {
                 whileHover={{ scale: 1.06 }}
                 whileTap={{ scale: 0.95 }}
                 onClick={handleScrollDown}
-                className="flex h-12 w-12 items-center justify-center rounded-full border border-white/15 bg-black/55 text-white shadow-xl backdrop-blur-md transition-colors hover:bg-red-600/85"
+                className="flex h-10 w-10 items-center justify-center rounded-full border border-white/15 bg-black/55 text-white shadow-xl backdrop-blur-md transition-colors hover:bg-red-600/85 sm:h-12 sm:w-12"
                 aria-label="Scroll down"
                 title="Scroll down"
               >
@@ -208,6 +208,12 @@ function getPageSeo(pathname: string) {
         title: 'New and Popular Movies | Movie Night',
         description: 'Discover new and popular movies, shows, and animations currently trending on Movie Night.',
         keywords: 'new movies, popular movies, trending shows, Movie Night new releases'
+      };
+    case '/privacy-policy':
+      return {
+        title: 'Privacy Policy | Movie Night',
+        description: 'Read the Movie Night privacy policy to learn how we handle data, cookies, advertising, and user privacy.',
+        keywords: 'privacy policy, Movie Night privacy, data policy, cookie policy'
       };
     default:
       return {

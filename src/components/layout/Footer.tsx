@@ -15,6 +15,10 @@ const libraryLinks = [
   { label: 'My Queue', href: '/queue' },
 ];
 
+const legalLinks = [
+  { label: 'Privacy Policy', href: '/privacy-policy' },
+];
+
 const contactLinks = [
   {
     label: 'Email',
@@ -83,6 +87,7 @@ export default function Footer() {
 
           <FooterLinkGroup title="Browse" links={browseLinks} />
           <FooterLinkGroup title="Your Library" links={libraryLinks} />
+          <FooterLinkGroup title="Legal" links={legalLinks} />
 
           <div>
             <h2 className="text-sm font-semibold text-white">Contact</h2>

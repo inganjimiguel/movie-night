@@ -7,6 +7,7 @@ const LikedPage = lazy(() => import('../../pages/liked/LikedPage'));
 const QueuePage = lazy(() => import('../../pages/queue/QueuePage'));
 const TVShowsPage = lazy(() => import('../../pages/tvshows/TVShowsPage'));
 const TrailersPage = lazy(() => import('../../pages/trailers/TrailersPage'));
+const PrivacyPolicyPage = lazy(() => import('../../pages/privacy/PrivacyPolicyPage'));
 
 export default function AppRouter() {
   return (
@@ -23,6 +24,7 @@ export default function AppRouter() {
         <Route path="/trailers" element={<TrailersRoute />} />
         <Route path="/movies" element={<MoviesRoute />} />
         <Route path="/new" element={<NewRoute />} />
+        <Route path="/privacy-policy" element={<PrivacyPolicyPage />} />
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
     </Suspense>
