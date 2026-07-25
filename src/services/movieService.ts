@@ -973,9 +973,50 @@ const normalizeTwoEmbedTvSearchResult = (item: TwoEmbedSearchTvResult): MovieDat
 
 const getSearchableTitle = (item: Pick<MovieData, 'title' | 'name'>) => getContentTitle(item).toLowerCase().trim();
 
+const normalizeSearchText = (value: string) => value
+  .toLowerCase()
+  .replace(/[^a-z0-9]+/g, ' ')
+  .trim();
+
+const getSearchQueryVariants = (query: string): string[] => {
+  const normalizedQuery = normalizeSearchText(query);
+  const variants = new Set([normalizedQuery]);
+  const words = normalizedQuery.split(' ').filter(Boolean);
+
+  // TMDB does not correct transposed letters, so add a small set of likely typo corrections.
+  for (let wordIndex = 0; wordIndex < words.length && variants.size < 7; wordIndex += 1) {
+    const word = words[wordIndex];
+    if (word.length < 4 || word.length > 16) continue;
+
+    for (let characterIndex = 0; characterIndex < word.length - 1 && variants.size < 7; characterIndex += 1) {
+      if (word[characterIndex] === word[characterIndex + 1]) continue;
+
+      const correctedWord = `${word.slice(0, characterIndex)}${word[characterIndex + 1]}${word[characterIndex]}${word.slice(characterIndex + 2)}`;
+      const correctedWords = [...words];
+      correctedWords[wordIndex] = correctedWord;
+      variants.add(correctedWords.join(' '));
+    }
+  }
+
+  return [...variants];
+};
+
+const getTitleMatchTier = (item: Pick<MovieData, 'title' | 'name'>, query: string): number => {
+  const normalizedQuery = normalizeSearchText(query);
+  const normalizedTitle = normalizeSearchText(getContentTitle(item));
+  if (!normalizedQuery || !normalizedTitle) return 0;
+  if (normalizedTitle === normalizedQuery) return 5;
+  if (normalizedTitle.startsWith(normalizedQuery)) return 4;
+  if (normalizedTitle.includes(normalizedQuery)) return 3;
+
+  const queryWords = normalizedQuery.split(' ');
+  const titleWords = normalizedTitle.split(' ');
+  return queryWords.every((word) => titleWords.some((titleWord) => titleWord.startsWith(word))) ? 2 : 0;
+};
+
 const computeSearchRelevance = (item: MovieData, query: string): number => {
-  const normalizedQuery = query.toLowerCase().trim();
-  const normalizedTitle = getSearchableTitle(item);
+  const normalizedQuery = normalizeSearchText(query);
+  const normalizedTitle = normalizeSearchText(getSearchableTitle(item));
   const normalizedWords = normalizedQuery.split(/\s+/).filter(Boolean);
   const titleWords = normalizedTitle.split(/\s+/).filter(Boolean);
 
@@ -1001,6 +1042,32 @@ const computeSearchRelevance = (item: MovieData, query: string): number => {
   if (item.poster_path) score += 10;
 
   return score;
+};
+
+const rankSearchResults = (items: MovieData[], queries: string): MovieData[] => {
+  const queryVariants = getSearchQueryVariants(queries);
+
+  return [...items].sort((a, b) => {
+    const matchTier = (item: MovieData) => Math.max(...queryVariants.map((query) => getTitleMatchTier(item, query)));
+    const aMatchTier = matchTier(a);
+    const bMatchTier = matchTier(b);
+    if (aMatchTier !== bMatchTier) {
+      return bMatchTier - aMatchTier;
+    }
+
+    const relevance = (item: MovieData) => Math.max(...queryVariants.map((query) => computeSearchRelevance(item, query)));
+    const relevanceDelta = relevance(b) - relevance(a);
+    if (relevanceDelta !== 0) {
+      return relevanceDelta;
+    }
+
+    const popularityDelta = (b.popularity || 0) - (a.popularity || 0);
+    if (popularityDelta !== 0) {
+      return popularityDelta;
+    }
+
+    return (b.vote_average || 0) - (a.vote_average || 0);
+  });
 };
 
 export const getVideoUrl = (
@@ -1440,30 +1507,29 @@ export const searchAllContent = async (query: string): Promise<ContentData[]> =>
 
   try {
     const normalizedQuery = query.trim();
-    const [moviesResponse, tvResponse] = await Promise.all([
-      fetch(`${TMDB_BASE_URL}/search/movie?query=${encodeURIComponent(normalizedQuery)}&include_adult=false&language=en-US&page=1`, {
+    const queryVariants = getSearchQueryVariants(normalizedQuery);
+    const responses = await Promise.all(queryVariants.flatMap((searchQuery) => [
+      fetch(`${TMDB_BASE_URL}/search/movie?query=${encodeURIComponent(searchQuery)}&include_adult=false&language=en-US&page=1`, {
         headers: getHeaders()
       }),
-      fetch(`${TMDB_BASE_URL}/search/tv?query=${encodeURIComponent(normalizedQuery)}&include_adult=false&language=en-US&page=1`, {
+      fetch(`${TMDB_BASE_URL}/search/tv?query=${encodeURIComponent(searchQuery)}&include_adult=false&language=en-US&page=1`, {
         headers: getHeaders()
       })
-    ]);
+    ]));
 
-    const [moviesData, tvData] = await Promise.all([
-      moviesResponse.ok ? moviesResponse.json() : Promise.resolve({ results: [] }),
-      tvResponse.ok ? tvResponse.json() : Promise.resolve({ results: [] }),
-    ]);
+    const responseData = await Promise.all(responses.map((response) => (
+      response.ok ? response.json() : Promise.resolve({ results: [] })
+    )));
 
-    const combinedResults: MovieData[] = [
-      ...(moviesData.results?.map((movie: any) => {
-        const isAnimation = (movie.genre_ids || []).includes(16);
-        return normalizeMovieResult(movie, isAnimation ? 'animation' : 'movie');
-      }) || []),
-      ...(tvData.results?.map((show: any) => {
-        const isAnimation = (show.genre_ids || []).includes(16);
-        return normalizeTvResult(show, isAnimation ? 'animation' : 'tv');
-      }) || []),
-    ];
+    const combinedResults: MovieData[] = responseData.flatMap((data, index) => {
+      const isMovieResponse = index % 2 === 0;
+      return data.results?.map((item: any) => {
+        const isAnimation = (item.genre_ids || []).includes(16);
+        return isMovieResponse
+          ? normalizeMovieResult(item, isAnimation ? 'animation' : 'movie')
+          : normalizeTvResult(item, isAnimation ? 'animation' : 'tv');
+      }) || [];
+    });
 
     const dedupedResults = combinedResults.filter((item, index, collection) => {
       const imdbKey = item.imdb_id ? `imdb:${item.imdb_id}` : null;
@@ -1478,8 +1544,7 @@ export const searchAllContent = async (query: string): Promise<ContentData[]> =>
       }) === index;
     });
 
-    return dedupedResults
-      .sort((a, b) => computeSearchRelevance(b, normalizedQuery) - computeSearchRelevance(a, normalizedQuery));
+    return rankSearchResults(dedupedResults, normalizedQuery);
   } catch (err) {
     console.error('TMDB Search All Content Error:', err);
     return [];

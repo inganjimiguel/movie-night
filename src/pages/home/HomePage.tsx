@@ -21,6 +21,7 @@ import {
   getContentSlug,
   getContentStorageKey,
   getContentTitle,
+  getContentTypeLabel,
   getContentYear,
   getBrowseContentCatalog,
   getNewReleaseMovies,
@@ -81,6 +82,7 @@ export default function HomePage({ navigateTo }: HomePageProps = {}) {
   const [animations, setAnimations] = useState<ContentData[]>([]);
   const [newReleases, setNewReleases] = useState<ContentData[]>([]);
   const [activeTab, setActiveTab] = useState<'movies' | 'tv' | 'animations'>('movies');
+  const [guideSessionSeed] = useState(getGuideSessionSeed);
   const searchRequestRef = useRef(0);
   const hasActiveSearch = searchQuery.trim().length > 0;
   const showBackToHomeNavbar = hasActiveSearch || selectedGenre > 0;
@@ -97,12 +99,9 @@ export default function HomePage({ navigateTo }: HomePageProps = {}) {
   }, [animations, movies, tvShows]);
   const currentContent = activeTab === 'movies' ? movies : activeTab === 'tv' ? tvShows : animations;
   const availableGenreIds = useMemo(() => {
-    const movieGenres = [12, 14, 16, 18, 27, 28, 35, 36, 37, 53, 80, 99, 878, 9648, 10402, 10749, 10751, 10752, 10770];
-    const tvGenres = [16, 35, 37, 80, 99, 9648, 10751, 10759, 10762, 10763, 10764, 10765, 10766, 10767, 10768];
-    const animationGenres = [12, 14, 16, 18, 28, 35, 878, 10751, 10759, 10765];
-    const currentGenreIds = allBrowseContent.flatMap((item) => item.genre_ids);
-
-    return Array.from(new Set([...movieGenres, ...tvGenres, ...animationGenres, ...currentGenreIds])).sort((a, b) => a - b);
+    return Array.from(new Set(allBrowseContent.flatMap((item) => item.genre_ids)))
+      .filter((genreId) => Boolean(genreMap[genreId]))
+      .sort((a, b) => genreMap[a].localeCompare(genreMap[b]));
   }, [allBrowseContent]);
   const currentFeatured = useMemo(() => {
     if (activeTab === 'movies') {
@@ -124,7 +123,14 @@ export default function HomePage({ navigateTo }: HomePageProps = {}) {
       return [];
     }
 
-    return allBrowseContent.filter((item) => item.genre_ids.includes(selectedGenre));
+    return allBrowseContent
+      .filter((item) => item.genre_ids.includes(selectedGenre))
+      .sort((a, b) => {
+        const popularityDelta = (b.popularity || 0) - (a.popularity || 0);
+        if (popularityDelta !== 0) return popularityDelta;
+
+        return (b.vote_average || 0) - (a.vote_average || 0);
+      });
   }, [allBrowseContent, selectedGenre]);
   const movieNewReleases = useMemo(() => {
     const seen = new Set<string>();
@@ -147,17 +153,19 @@ export default function HomePage({ navigateTo }: HomePageProps = {}) {
       .slice(0, 10);
   }, [currentFeaturedKey, featuredRemovedContent, newReleases]);
   const editorialGuides = useMemo(() => {
-    const byGenre = (genreIds: number[]) => allBrowseContent
-      .filter((item) => item.genre_ids.some((genreId) => genreIds.includes(genreId)))
-      .filter((item, index, items) => items.findIndex((candidate) => getContentStorageKey(candidate) === getContentStorageKey(item)) === index)
-      .slice(0, 4);
+    const usedKeys = new Set<string>();
+    const select = (guide: GuideKind, candidates: ContentData[]) => {
+      const picks = selectGuidePicks(candidates, guide, guideSessionSeed, usedKeys);
+      picks.forEach((item) => usedKeys.add(getContentStorageKey(item)));
+      return picks;
+    };
 
     return {
-      dateNight: byGenre([35, 18, 10749]),
-      familyNight: byGenre([12, 16, 35, 10751]),
-      weekend: (movieNewReleases.length ? movieNewReleases : allBrowseContent).slice(0, 4)
+      dateNight: select('dateNight', allBrowseContent),
+      familyNight: select('familyNight', allBrowseContent),
+      weekend: select('weekend', movieNewReleases.length ? movieNewReleases : allBrowseContent)
     };
-  }, [allBrowseContent, movieNewReleases]);
+  }, [allBrowseContent, guideSessionSeed, movieNewReleases]);
   const visibleContinueWatchingEntries = useMemo(() => continueWatchingEntries.slice(0, 10), [continueWatchingEntries]);
 
   const syncTabWithItem = useCallback((item: ContentData) => {
@@ -177,9 +185,15 @@ export default function HomePage({ navigateTo }: HomePageProps = {}) {
     setIsSearching(false);
     setIsSearchLoading(false);
     setSelectedGenre(genreId);
-    const genreSlug = createSlug(genreMap[genreId] || 'genre');
-    if (genreId > 0 && location.pathname !== `/genres/${genreSlug}`) {
-      void navigate(`/genres/${genreSlug}`);
+    if (genreId === 0) {
+      if (location.pathname.startsWith('/genres/')) {
+        void navigate('/');
+      }
+    } else {
+      const genreSlug = createSlug(genreMap[genreId]);
+      if (location.pathname !== `/genres/${genreSlug}`) {
+        void navigate(`/genres/${genreSlug}`);
+      }
     }
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
@@ -298,16 +312,7 @@ export default function HomePage({ navigateTo }: HomePageProps = {}) {
       return [];
     }
 
-    const filtered = [...searchResults];
-    filtered.sort((a, b) => {
-      const popularityDelta = (b.popularity || 0) - (a.popularity || 0);
-      if (popularityDelta !== 0) {
-        return popularityDelta;
-      }
-
-      return (b.vote_average || 0) - (a.vote_average || 0);
-    });
-    return filtered;
+    return searchResults;
   }, [hasActiveSearch, searchResults]);
 
   useEffect(() => {
@@ -760,7 +765,7 @@ function IndexableMovieGuides({
                           {getContentYear(item)} | {getGenreNames(item.genre_ids) || 'Movie Night pick'}
                         </span>
                         <span className="mt-2 block text-xs leading-5 text-gray-300">
-                          {getContentTitle(item)} is a useful pick for this guide because it matches the mood, genre, or popularity signals viewers often use when choosing what to watch.
+                          {getGuideRecommendationReason(guide.slug, item)}
                         </span>
                       </button>
                     </li>
@@ -778,3 +783,107 @@ function IndexableMovieGuides({
     </section>
   );
 }
+
+type GuideKind = 'dateNight' | 'familyNight' | 'weekend';
+
+const GUIDE_GENRES: Record<GuideKind, number[]> = {
+  dateNight: [10749, 35, 18, 53],
+  familyNight: [10751, 16, 12, 35, 14],
+  weekend: [],
+};
+
+const getGuideSessionSeed = () => {
+  const storageKey = 'movienight-guide-session-seed';
+
+  try {
+    const existingSeed = sessionStorage.getItem(storageKey);
+    if (existingSeed) return existingSeed;
+
+    const newSeed = crypto.randomUUID();
+    sessionStorage.setItem(storageKey, newSeed);
+    return newSeed;
+  } catch {
+    return `${Date.now()}-${Math.random()}`;
+  }
+};
+
+const getStableGuideShuffleValue = (value: string) => {
+  let hash = 2166136261;
+  for (let index = 0; index < value.length; index += 1) {
+    hash ^= value.charCodeAt(index);
+    hash = Math.imul(hash, 16777619);
+  }
+
+  return (hash >>> 0) / 4294967295;
+};
+
+const getReleaseRecencyScore = (item: ContentData) => {
+  const releaseYear = Number(getContentYear(item));
+  if (!Number.isFinite(releaseYear)) return 0;
+
+  const age = Math.max(0, new Date().getFullYear() - releaseYear);
+  return Math.max(0, 18 - age * 2);
+};
+
+const getGuideScore = (item: ContentData, guide: GuideKind, sessionSeed: string) => {
+  const genreIds = GUIDE_GENRES[guide];
+  const genreScore = genreIds.reduce((score, genreId, index) => (
+    item.genre_ids.includes(genreId) ? score + 42 - index * 4 : score
+  ), 0);
+  const popularityScore = Math.min(Math.log1p(item.popularity || 0) * 7, 45);
+  const ratingScore = Math.min(item.vote_average || 0, 10) * 3;
+  const recencyScore = guide === 'weekend' ? getReleaseRecencyScore(item) : getReleaseRecencyScore(item) * 0.4;
+  const shuffleScore = getStableGuideShuffleValue(`${sessionSeed}:${guide}:${getContentStorageKey(item)}`) * 24;
+
+  return genreScore + popularityScore + ratingScore + recencyScore + shuffleScore;
+};
+
+const selectGuidePicks = (
+  candidates: ContentData[],
+  guide: GuideKind,
+  sessionSeed: string,
+  usedKeys: Set<string>,
+) => {
+  const preferredGenres = GUIDE_GENRES[guide];
+  const ranked = candidates
+    .filter((item, index, items) => (
+      !usedKeys.has(getContentStorageKey(item)) &&
+      items.findIndex((candidate) => getContentStorageKey(candidate) === getContentStorageKey(item)) === index
+    ))
+    .filter((item) => guide === 'weekend' || item.genre_ids.some((genreId) => preferredGenres.includes(genreId)))
+    .sort((a, b) => getGuideScore(b, guide, sessionSeed) - getGuideScore(a, guide, sessionSeed));
+
+  const picks: ContentData[] = [];
+  const typeCounts = new Map<string, number>();
+  const genreCounts = new Map<number, number>();
+
+  for (const item of ranked) {
+    const type = getContentTypeLabel(item);
+    const primaryGenre = preferredGenres.find((genreId) => item.genre_ids.includes(genreId));
+    if ((typeCounts.get(type) || 0) >= 2 || (primaryGenre && (genreCounts.get(primaryGenre) || 0) >= 2)) {
+      continue;
+    }
+
+    picks.push(item);
+    typeCounts.set(type, (typeCounts.get(type) || 0) + 1);
+    if (primaryGenre) genreCounts.set(primaryGenre, (genreCounts.get(primaryGenre) || 0) + 1);
+    if (picks.length === 4) return picks;
+  }
+
+  return [...picks, ...ranked.filter((item) => !picks.some((pick) => getContentStorageKey(pick) === getContentStorageKey(item)))].slice(0, 4);
+};
+
+const getGuideRecommendationReason = (guideSlug: string, item: ContentData) => {
+  const genres = getGenreNames(item.genre_ids) || 'a strong genre match';
+  const rating = item.vote_average > 0 ? ` Rated ${item.vote_average.toFixed(1)}/10.` : '';
+
+  if (guideSlug === 'best-movies-for-date-night') {
+    return `A ${genres.toLowerCase()} pick selected for an easy shared watch.${rating}`;
+  }
+
+  if (guideSlug === 'best-family-movies') {
+    return `Chosen for its family-friendly mix of ${genres.toLowerCase()}.${rating}`;
+  }
+
+  return `A timely ${getContentTypeLabel(item).toLowerCase()} pick with strong current interest.${rating}`;
+};

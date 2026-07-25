@@ -501,9 +501,9 @@ export default function ModernMovieDetailsModal({
             </div>
           </div>
 
-          <div className="relative mt-16 mb-6 min-h-[48vh] bg-black pb-6 sm:mb-8 sm:min-h-[60vh] sm:pb-8">
+          <div className="relative mt-16 bg-black px-0 sm:px-6 lg:px-8">
             {isPlaying && currentVideoUrl ? (
-              <div className="relative z-0 h-[48vh] w-full overflow-hidden rounded-b-[2rem] sm:h-[60vh] lg:h-[72vh]">
+              <div className="relative z-0 mx-auto aspect-video w-full max-w-6xl overflow-hidden rounded-b-[1.5rem] bg-black">
                 <iframe
                   key={currentVideoUrl}
                   src={currentVideoUrl}
@@ -517,11 +517,11 @@ export default function ModernMovieDetailsModal({
                 />
               </div>
             ) : (
-              <div className="relative z-0 h-[48vh] w-full overflow-hidden rounded-b-[2rem] sm:h-[60vh] lg:h-[72vh]">
+              <div className="relative z-0 mx-auto aspect-video w-full max-w-6xl overflow-hidden rounded-b-[1.5rem] bg-black">
                 <img src={getImageUrl(heroImagePath || movie.backdrop_path, 'original')} alt={title} className="h-full w-full object-cover" />
                 <div className="absolute inset-0 bg-gradient-to-t from-black via-black/50 to-black/60" />
 
-                <div className="absolute inset-0 flex flex-col justify-between p-4 sm:p-8 lg:p-12">
+                <div className="absolute inset-0 p-4 sm:p-8 lg:p-12">
                   <div className="flex flex-wrap items-start justify-between gap-4">
                     <div className="max-w-3xl space-y-3">
                       <div className="flex flex-wrap items-center gap-2">
@@ -564,20 +564,17 @@ export default function ModernMovieDetailsModal({
                     </div>
                   </div>
 
-                  <div className="flex justify-center">
-                    <motion.button
-                      whileHover={{ scale: 1.08 }}
-                      whileTap={{ scale: 0.95 }}
-                      onClick={handlePlayClick}
-                      disabled={isPlayerLoading}
-                      className="flex h-20 w-20 items-center justify-center rounded-full bg-white text-black shadow-2xl transition-all hover:bg-gray-100 disabled:opacity-50 sm:h-24 sm:w-24"
-                    >
-                      {isPlayerLoading ? <LoaderCircle className="h-9 w-9 animate-spin" /> : <Play className="ml-1 h-9 w-9 fill-black" />}
-                    </motion.button>
-                  </div>
-
-                  <div className="max-w-2xl" />
                 </div>
+                <motion.button
+                  whileHover={{ scale: 1.08 }}
+                  whileTap={{ scale: 0.95 }}
+                  onClick={handlePlayClick}
+                  disabled={isPlayerLoading}
+                  className="absolute left-1/2 top-1/2 z-10 flex h-20 w-20 -translate-x-1/2 -translate-y-1/2 items-center justify-center rounded-full bg-white text-black shadow-2xl transition-all hover:bg-gray-100 disabled:opacity-50 sm:h-24 sm:w-24"
+                  aria-label={`Play ${title}`}
+                >
+                  {isPlayerLoading ? <LoaderCircle className="h-9 w-9 animate-spin" /> : <Play className="ml-1 h-9 w-9 fill-black" />}
+                </motion.button>
               </div>
             )}
 
@@ -592,10 +589,10 @@ export default function ModernMovieDetailsModal({
             </AnimatePresence>
           </div>
 
-          <div className="relative z-10 border-t border-white/10 bg-black">
-            <div className="grid gap-8 px-4 py-6 sm:px-6 lg:grid-cols-[minmax(0,1fr)] lg:px-8">
+          <div className="relative z-0 bg-black">
+            <div className="grid gap-8 px-4 pt-6 pb-6 sm:px-6 sm:pt-8 lg:grid-cols-[minmax(0,1fr)] lg:px-8">
               <div className="flex flex-col gap-5">
-                <div className="relative z-20 rounded-2xl border border-white/10 bg-white/5 p-4">
+                <div className="relative z-0 rounded-2xl border border-white/10 bg-white/5 p-4">
                   <div className="flex flex-col gap-5">
                     <div className="grid grid-cols-2 gap-3 sm:flex sm:flex-wrap sm:items-center">
                     <button

@@ -1,10 +1,25 @@
 import { Film, Instagram, Mail, Phone } from 'lucide-react';
+import { Link } from 'react-router-dom';
 
-const footerLinks = [
+const browseLinks = [
+  { label: 'Home', href: '/' },
+  { label: 'Movies', href: '/movies' },
+  { label: 'TV Shows', href: '/tv-shows' },
+  { label: 'Trailers', href: '/trailers' },
+  { label: 'New & Popular', href: '/new' },
+];
+
+const libraryLinks = [
+  { label: 'Continue Watching', href: '/continue-watching' },
+  { label: 'Liked Titles', href: '/liked' },
+  { label: 'My Queue', href: '/queue' },
+];
+
+const contactLinks = [
   {
     label: 'Email',
-    value: 'miguelinganji@gmail.com',
-    href: 'mailto:miguelinganji@gmail.com',
+    value: 'themovienightscorps@gmail.com',
+    href: 'mailto:themovienightscorps@gmail.com',
     icon: Mail,
   },
   {
@@ -22,59 +37,82 @@ const footerLinks = [
   },
 ];
 
-export default function Footer() {
+interface FooterLinkGroupProps {
+  title: string;
+  links: Array<{ label: string; href: string }>;
+}
+
+function FooterLinkGroup({ title, links }: FooterLinkGroupProps) {
   return (
-    <footer className="relative mt-20 border-t border-white/10 bg-black">
-      <div className="absolute inset-0 bg-[radial-gradient(circle_at_top,_rgba(239,68,68,0.14),_transparent_45%)]" />
+    <div>
+      <h2 className="text-sm font-semibold text-white">{title}</h2>
+      <ul className="mt-4 space-y-3">
+        {links.map((link) => (
+          <li key={link.href}>
+            <Link className="text-sm text-gray-400 transition-colors hover:text-white" to={link.href}>
+              {link.label}
+            </Link>
+          </li>
+        ))}
+      </ul>
+    </div>
+  );
+}
 
-      <div className="relative mx-auto max-w-7xl px-4 py-12 sm:px-6 lg:px-8">
-        <div className="grid gap-10 lg:grid-cols-[minmax(0,1.25fr)_minmax(0,1fr)]">
-          <div className="space-y-5">
-            <div className="inline-flex items-center gap-3 rounded-2xl border border-white/10 bg-white/[0.03] px-4 py-3 backdrop-blur-sm">
-              <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-gradient-to-br from-red-600 via-red-500 to-orange-500 shadow-lg shadow-red-950/40">
-                <Film className="h-6 w-6 text-white" />
-              </div>
-              <div>
-                <p className="text-[11px] font-semibold uppercase tracking-[0.28em] text-red-400">MovieNight</p>
-                <h3 className="text-xl font-black tracking-tight text-white sm:text-2xl">InganjiCorp</h3>
-              </div>
-            </div>
+export default function Footer() {
+  const currentYear = new Date().getFullYear();
 
-            <div className="max-w-2xl space-y-3">
-              <p className="text-base font-medium text-white sm:text-lg">
-                Streaming discovery for movies, TV shows, and animation.
-              </p>
-              <p className="text-sm leading-7 text-gray-400 sm:text-base">
-                Fast browsing, clean search, trailer previews, and direct playback in one place.
-              </p>
-            </div>
+  return (
+    <footer className="mt-20 border-t border-white/10 bg-[#090909]">
+      <div className="mx-auto max-w-7xl px-4 py-12 sm:px-6 lg:px-8 lg:py-14">
+        <div className="grid gap-10 border-b border-white/10 pb-10 sm:grid-cols-2 lg:grid-cols-[minmax(0,1.35fr)_minmax(140px,0.7fr)_minmax(150px,0.8fr)_minmax(230px,1fr)]">
+          <div className="max-w-sm">
+            <Link to="/" className="inline-flex items-center gap-3 text-white" aria-label="Movie Night home">
+              <span className="flex h-10 w-10 items-center justify-center rounded-lg bg-red-600 shadow-lg shadow-red-950/40">
+                <Film className="h-5 w-5" />
+              </span>
+              <span className="text-xl font-black tracking-tight">MovieNight</span>
+            </Link>
+            <p className="mt-5 text-sm leading-6 text-gray-400">
+              Find movies, TV shows, trailers, and your next great watch in one place.
+            </p>
+            <p className="mt-4 text-sm leading-6 text-gray-500">
+              Content availability, ratings, and trailers may vary by title and region.
+            </p>
           </div>
 
-          <div className="grid gap-4 sm:grid-cols-3 lg:grid-cols-1">
-            {footerLinks.map((link) => {
-              const Icon = link.icon;
+          <FooterLinkGroup title="Browse" links={browseLinks} />
+          <FooterLinkGroup title="Your Library" links={libraryLinks} />
 
-              return (
-                <a
-                  key={link.label}
-                  href={link.href}
-                  target={link.external ? '_blank' : undefined}
-                  rel={link.external ? 'noopener noreferrer' : undefined}
-                  className="group rounded-2xl border border-white/10 bg-white/[0.03] p-4 transition-all hover:-translate-y-1 hover:border-red-500/30 hover:bg-white/[0.05]"
-                >
-                  <div className="mb-3 flex h-11 w-11 items-center justify-center rounded-xl bg-white/5 text-red-400 transition-colors group-hover:bg-red-600/15">
-                    <Icon className="h-5 w-5" />
-                  </div>
-                  <p className="text-xs font-semibold uppercase tracking-[0.24em] text-gray-500">{link.label}</p>
-                  <p className="mt-2 break-all text-sm font-medium text-white sm:text-base">{link.value}</p>
-                </a>
-              );
-            })}
+          <div>
+            <h2 className="text-sm font-semibold text-white">Contact</h2>
+            <ul className="mt-4 space-y-4">
+              {contactLinks.map((link) => {
+                const Icon = link.icon;
+
+                return (
+                  <li key={link.label}>
+                    <a
+                      href={link.href}
+                      target={link.external ? '_blank' : undefined}
+                      rel={link.external ? 'noopener noreferrer' : undefined}
+                      className="group flex items-start gap-3 text-sm text-gray-400 transition-colors hover:text-white"
+                    >
+                      <Icon className="mt-0.5 h-4 w-4 shrink-0 text-red-500 transition-colors group-hover:text-red-400" />
+                      <span className="break-all">{link.value}</span>
+                    </a>
+                  </li>
+                );
+              })}
+            </ul>
           </div>
         </div>
 
-        <div className="mt-10 border-t border-white/10 pt-6 text-center text-sm text-gray-500">
-          <p>© {new Date().getFullYear()} MovieNight.</p>
+        <div className="flex flex-col gap-3 pt-6 text-sm text-gray-500 sm:flex-row sm:items-center sm:justify-between">
+          <p>Copyright {currentYear} MovieNight. All rights reserved.</p>
+          <p>
+            Developed by <span className="font-medium text-gray-300">InganjiCorp</span>
+          </p>
         </div>
       </div>
     </footer>
