@@ -2,6 +2,7 @@ import { lazy, Suspense, useEffect, useState } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { ChevronDown, ChevronUp, Heart, Sparkles } from 'lucide-react';
 import { useLocation } from 'react-router-dom';
+import { Analytics } from '@vercel/analytics/react';
 import { ContinueWatchingProvider } from './contexts/ContinueWatchingContext';
 import { MediaLibraryProvider } from './contexts/MediaLibraryContext';
 import AppRouter from './components/layout/AppRouter';
@@ -49,6 +50,7 @@ export default function App() {
   return (
     <>
       <GoogleAnalytics pageTitle={pageSeo.title} />
+      <Analytics />
 
       <SEOHead
         title={pageSeo.title}
