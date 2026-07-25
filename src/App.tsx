@@ -7,6 +7,7 @@ import { MediaLibraryProvider } from './contexts/MediaLibraryContext';
 import AppRouter from './components/layout/AppRouter';
 import SEOHead from './components/seo/SEOHead';
 import Footer from './components/layout/Footer';
+import GoogleAnalytics from './components/analytics/GoogleAnalytics';
 
 const DonationModal = lazy(() => import('./components/payments/DonationModal'));
 
@@ -47,6 +48,8 @@ export default function App() {
 
   return (
     <>
+      <GoogleAnalytics pageTitle={pageSeo.title} />
+
       <SEOHead
         title={pageSeo.title}
         description={pageSeo.description}
