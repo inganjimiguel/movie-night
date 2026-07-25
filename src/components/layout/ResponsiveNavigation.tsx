@@ -101,22 +101,23 @@ export default function ResponsiveNavigation({
     <>
       {/* Desktop Navigation */}
       <nav
-        className={`fixed top-0 w-full z-[100] transition-all duration-300 px-4 sm:px-6 lg:px-8 py-4 ${
+        className={`fixed top-0 w-full z-[100] transition-all duration-300 px-3 py-3 sm:px-6 sm:py-4 lg:px-8 ${
           isScrolled 
             ? 'bg-black/95 backdrop-blur-lg border-b border-white/10 shadow-2xl' 
             : 'bg-gradient-to-b from-black/80 via-black/50 to-transparent'
         }`}
       >
-        <div className="flex items-center justify-between">
+        <div className="flex min-w-0 items-center justify-between gap-2">
           {/* Logo and Desktop Nav */}
-          <div className="flex items-center gap-6 lg:gap-8">
+          <div className="flex min-w-0 items-center gap-3 lg:gap-8">
             {/* Logo */}
             <button
               type="button"
               onClick={onResetToBrowse}
-              className="text-red-600 text-xl sm:text-2xl lg:text-3xl font-black tracking-tighter uppercase cursor-pointer hover:text-red-500 transition-colors"
+              className="shrink-0 text-lg font-black uppercase tracking-tight text-red-600 transition-colors hover:text-red-500 sm:text-2xl sm:tracking-tighter lg:text-3xl"
             >
-              MovieNight
+              <span className="sm:hidden">MN</span>
+              <span className="hidden sm:inline">MovieNight</span>
             </button>
 
             {/* Desktop Navigation Items */}
@@ -142,9 +143,9 @@ export default function ResponsiveNavigation({
           </div>
 
           {/* Right Side Actions */}
-          <div className="flex items-center gap-3 sm:gap-4">
+          <div className="flex min-w-0 items-center gap-1.5 sm:gap-4">
             {/* Search Bar */}
-            <div className="relative group">
+            <div className="relative min-w-0 group">
               <form onSubmit={onSearchSubmit}>
                 <input
                   type="text"
@@ -153,9 +154,9 @@ export default function ResponsiveNavigation({
                   onFocus={handleSearchFocus}
                   onBlur={handleSearchBlur}
                   placeholder="Search movies..."
-                  className={`bg-black/40 border border-white/20 px-4 py-2 pl-10 rounded-full text-sm focus:outline-none transition-all w-32 sm:w-48 md:w-64 lg:w-80 ${
+                  className={`w-[min(42vw,10rem)] rounded-full border border-white/20 bg-black/40 px-3 py-2 pl-9 text-sm text-white transition-all placeholder:text-gray-500 focus:outline-none sm:w-48 sm:px-4 sm:pl-10 md:w-64 lg:w-80 ${
                     isSearchFocused || searchQuery
-                      ? 'border-red-600 bg-white/10 w-48 sm:w-64 md:w-80 lg:w-96'
+                      ? 'w-[min(50vw,12rem)] border-red-600 bg-white/10 sm:w-64 md:w-80 lg:w-96'
                       : 'hover:border-white/40'
                   }`}
                 />
@@ -166,7 +167,7 @@ export default function ResponsiveNavigation({
             </div>
 
             {/* Notifications */}
-            <div className="relative" ref={notificationRef}>
+            <div className="relative hidden sm:block" ref={notificationRef}>
               <motion.button
                 whileHover={{ scale: 1.1 }}
                 whileTap={{ scale: 0.9 }}
@@ -236,7 +237,7 @@ export default function ResponsiveNavigation({
             </div>
 
             {/* User Profile Dropdown */}
-            <div className="relative" ref={userMenuRef}>
+            <div className="relative hidden sm:block" ref={userMenuRef}>
               <motion.button
                 whileHover={{ scale: 1.05 }}
                 whileTap={{ scale: 0.95 }}
@@ -329,7 +330,8 @@ export default function ResponsiveNavigation({
             {/* Mobile Menu Toggle */}
             <button
               onClick={handleMobileMenuToggle}
-              className="lg:hidden p-2 rounded-full hover:bg-white/10 transition-colors"
+              className="rounded-full p-2 transition-colors hover:bg-white/10 lg:hidden"
+              aria-label="Open menu"
             >
               {isMobileMenuOpen ? (
                 <X className="w-6 h-6 text-white" />
@@ -351,8 +353,8 @@ export default function ResponsiveNavigation({
           />
 
           {/* Mobile Menu Panel */}
-          <div className="absolute top-20 right-4 w-80 max-w-[90vw] bg-black/95 backdrop-blur-lg border border-white/10 rounded-2xl shadow-2xl overflow-hidden">
-            <div className="p-6">
+          <div className="absolute right-3 top-16 w-[calc(100vw-24px)] max-w-sm overflow-hidden rounded-2xl border border-white/10 bg-black/95 shadow-2xl backdrop-blur-lg sm:right-4 sm:top-20 sm:w-80">
+            <div className="p-4 sm:p-6">
               {/* Mobile Search */}
               <div className="mb-6">
                 <form onSubmit={onSearchSubmit}>

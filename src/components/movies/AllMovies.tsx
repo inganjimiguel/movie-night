@@ -427,11 +427,11 @@ export default function AllMovies({ onMovieSelect }: AllMoviesProps) {
 
   return (
     <>
-      <div className="px-4 py-8 sm:px-6 lg:px-8">
+      <div className="px-3 py-6 sm:px-6 sm:py-8 lg:px-8">
         {/* Header */}
-        <div className="mb-12 rounded-[32px] border border-white/10 bg-black/45 px-6 py-8 text-center shadow-2xl shadow-black/25 backdrop-blur-xl sm:px-8">
-          <h2 className="mb-4 text-4xl font-bold text-white sm:text-5xl">Popular movies of different years</h2>
-          <p className="text-lg text-gray-400">Browse the most popular movies by year</p>
+        <div className="mb-8 rounded-2xl border border-white/10 bg-black/45 px-4 py-6 text-center shadow-2xl shadow-black/25 backdrop-blur-xl sm:mb-12 sm:rounded-[32px] sm:px-8 sm:py-8">
+          <h2 className="mb-3 text-2xl font-bold leading-tight text-white sm:mb-4 sm:text-5xl">Popular movies of different years</h2>
+          <p className="text-sm text-gray-400 sm:text-lg">Browse the most popular movies by year</p>
         </div>
 
         {/* Loading State */}
@@ -457,12 +457,12 @@ export default function AllMovies({ onMovieSelect }: AllMoviesProps) {
 
         {/* Year Selector */}
         {!isLoading && !error && (
-          <div className="max-w-md mx-auto mb-12">
+          <div className="mx-auto mb-8 max-w-md sm:mb-12">
             <div className="relative">
               <select
                 value={selectedYear || ''}
                 onChange={(e) => setSelectedYear(e.target.value ? parseInt(e.target.value) : null)}
-                className="w-full appearance-none rounded-2xl border border-white/10 bg-black/60 px-6 py-4 text-lg text-white backdrop-blur-md transition-colors focus:border-red-600 focus:outline-none"
+                className="w-full appearance-none rounded-2xl border border-white/10 bg-black/60 px-4 py-3 text-base text-white backdrop-blur-md transition-colors focus:border-red-600 focus:outline-none sm:px-6 sm:py-4 sm:text-lg"
               >
                 <option value="">Select a year</option>
                 {years.map(year => (
@@ -478,11 +478,11 @@ export default function AllMovies({ onMovieSelect }: AllMoviesProps) {
         {selectedYear && movies.length > 0 ? (
           <div className="space-y-8">
             <div className="text-center">
-              <h2 className="text-3xl font-bold text-white mb-2">{selectedYear} Movies</h2>
+              <h2 className="mb-2 text-2xl font-bold text-white sm:text-3xl">{selectedYear} Movies</h2>
               <p className="text-gray-400">{movies.length} movies available</p>
             </div>
             
-            <div className="grid grid-cols-1 justify-items-center gap-4 min-[380px]:grid-cols-2 sm:grid-cols-3 sm:gap-6 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6">
+            <div className="grid grid-cols-2 justify-items-center gap-3 sm:grid-cols-3 sm:gap-6 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6">
               {movies.map((movie, index) => (
                 <motion.div
                   key={movie.id}

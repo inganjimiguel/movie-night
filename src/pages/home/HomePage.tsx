@@ -425,14 +425,14 @@ export default function HomePage({ navigateTo }: HomePageProps = {}) {
       />
 
       {/* Navigation Tabs and Search */}
-      <div className={`relative z-10 px-3 py-5 sm:px-6 sm:py-6 lg:px-8 ${showBackToHomeNavbar ? 'pt-24 sm:pt-28' : 'pt-20 sm:pt-24'}`}>
-        <h1 className="mb-5 text-3xl font-black tracking-tight text-white sm:text-4xl lg:text-5xl">
+      <div className={`relative z-10 px-3 py-4 sm:px-6 sm:py-6 lg:px-8 ${showBackToHomeNavbar ? 'pt-20 sm:pt-28' : 'pt-16 sm:pt-24'}`}>
+        <h1 className="mb-4 text-2xl font-black leading-tight tracking-tight text-white min-[380px]:text-3xl sm:mb-5 sm:text-4xl lg:text-5xl">
           Watch Movie Night Picks
         </h1>
 
         {/* Content Type Tabs */}
-        <div className="mb-5 rounded-[28px] border border-white/10 bg-black/45 p-4 shadow-2xl shadow-black/25 backdrop-blur-xl sm:mb-6 sm:p-5">
-          <div className="mb-4 flex flex-wrap items-center gap-3 sm:gap-4">
+        <div className="mb-4 rounded-2xl border border-white/10 bg-black/45 p-3 shadow-2xl shadow-black/25 backdrop-blur-xl sm:mb-6 sm:rounded-[28px] sm:p-5">
+          <div className="mb-3 flex flex-wrap items-center gap-3 sm:mb-4 sm:gap-4">
             <div className="flex w-full max-w-full overflow-x-auto rounded-full border border-white/10 bg-white/5 p-1 sm:w-auto">
               {[
                 { key: 'movies', label: 'Movies' },
@@ -442,7 +442,7 @@ export default function HomePage({ navigateTo }: HomePageProps = {}) {
                 <button
                   key={tab.key}
                   onClick={() => setActiveTab(tab.key as any)}
-                  className={`shrink-0 rounded-full px-4 py-2 text-sm font-medium transition-all sm:px-6 sm:text-base ${
+                  className={`shrink-0 rounded-full px-3 py-2 text-sm font-medium transition-all sm:px-6 sm:text-base ${
                     activeTab === tab.key
                       ? 'bg-red-600 text-white shadow-lg shadow-red-600/30'
                       : 'text-gray-400 hover:bg-white/5 hover:text-white'
@@ -490,7 +490,7 @@ export default function HomePage({ navigateTo }: HomePageProps = {}) {
               {filteredResults.length} results for "{searchQuery}"
             </p>
           </div>
-          <div className="grid grid-cols-1 justify-items-center gap-3 pb-12 min-[380px]:grid-cols-2 sm:grid-cols-3 sm:gap-6 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6">
+          <div className="grid grid-cols-2 justify-items-center gap-3 pb-12 sm:grid-cols-3 sm:gap-6 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6">
             {filteredResults.map((item, index) => (
               <div key={item.id} className="transform transition-all duration-300 hover:scale-105">
                 <ModernMovieCard
@@ -531,7 +531,7 @@ export default function HomePage({ navigateTo }: HomePageProps = {}) {
               {genreResults.length} titles found
             </p>
           </div>
-          <div className="grid grid-cols-1 justify-items-center gap-3 pb-12 min-[380px]:grid-cols-2 sm:grid-cols-3 sm:gap-6 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6">
+          <div className="grid grid-cols-2 justify-items-center gap-3 pb-12 sm:grid-cols-3 sm:gap-6 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6">
             {genreResults.map((movie) => (
               <div key={getContentStorageKey(movie)} className="transform transition-all duration-300 hover:scale-105">
                 <ModernMovieCard
@@ -563,7 +563,7 @@ export default function HomePage({ navigateTo }: HomePageProps = {}) {
             onMarkWatched={(entry) => markAsWatched(entry.entryKey)}
           />
 
-          <main className={`relative ${currentFeatured ? 'mt-8 sm:mt-10 lg:mt-12' : 'mt-6 sm:mt-8'} z-10 pb-20 sm:pb-24 space-y-10 sm:space-y-14 lg:space-y-20 w-full overflow-x-hidden`}>
+          <main className={`relative ${currentFeatured ? 'mt-6 sm:mt-10 lg:mt-12' : 'mt-5 sm:mt-8'} z-10 pb-16 sm:pb-24 space-y-8 sm:space-y-14 lg:space-y-20 w-full overflow-x-hidden`}>
             {activeTab === 'movies' && (
               <>
                 <ModernMovieCarousel

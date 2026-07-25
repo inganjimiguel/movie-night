@@ -487,10 +487,10 @@ export default function ModernMovieDetailsModal({
           transition={{ duration: 0.25 }}
           className="flex h-full flex-col overflow-y-auto bg-black"
         >
-          <div className="fixed left-3 right-3 top-3 z-[1002] flex max-w-[calc(100vw-24px)] items-center gap-3 rounded-full border border-white/10 bg-black/70 px-3 py-2 shadow-xl backdrop-blur-md sm:left-6 sm:right-auto sm:top-6 sm:max-w-[min(560px,calc(100vw-48px))]">
+          <div className="fixed left-2 right-2 top-2 z-[1002] flex max-w-[calc(100vw-16px)] items-center gap-2 rounded-full border border-white/10 bg-black/70 px-2 py-2 shadow-xl backdrop-blur-md sm:left-6 sm:right-auto sm:top-6 sm:max-w-[min(560px,calc(100vw-48px))] sm:gap-3 sm:px-3">
             <button
               onClick={onClose}
-              className="flex h-10 w-10 items-center justify-center rounded-full bg-white/10 transition-colors hover:bg-white/20"
+              className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-white/10 transition-colors hover:bg-white/20"
               aria-label="Close details"
             >
               <X className="h-5 w-5 text-white" />
@@ -501,7 +501,7 @@ export default function ModernMovieDetailsModal({
             </div>
           </div>
 
-          <div className="relative mt-16 bg-black px-0 sm:px-6 lg:px-8">
+          <div className="relative mt-14 bg-black px-0 sm:mt-16 sm:px-6 lg:px-8">
             {isPlaying && currentVideoUrl ? (
               <div className="relative z-0 mx-auto aspect-video w-full max-w-6xl overflow-hidden rounded-b-[1.5rem] bg-black">
                 <iframe
@@ -517,20 +517,20 @@ export default function ModernMovieDetailsModal({
                 />
               </div>
             ) : (
-              <div className="relative z-0 mx-auto aspect-video w-full max-w-6xl overflow-hidden rounded-b-[1.5rem] bg-black">
+              <div className="relative z-0 mx-auto aspect-[4/5] w-full max-w-6xl overflow-hidden rounded-b-[1.25rem] bg-black min-[420px]:aspect-[16/11] sm:aspect-video sm:rounded-b-[1.5rem]">
                 <img src={getImageUrl(heroImagePath || movie.backdrop_path, 'original')} alt={title} className="h-full w-full object-cover" />
                 <div className="absolute inset-0 bg-gradient-to-t from-black via-black/50 to-black/60" />
 
-                <div className="absolute inset-0 p-4 sm:p-8 lg:p-12">
+                <div className="absolute inset-0 p-4 pt-14 sm:p-8 lg:p-12">
                   <div className="flex flex-wrap items-start justify-between gap-4">
-                    <div className="max-w-3xl space-y-3">
+                    <div className="max-w-3xl space-y-2.5 sm:space-y-3">
                       <div className="flex flex-wrap items-center gap-2">
                         <Badge text="HD" className="border border-white/20 bg-white/10 text-white" />
                         <Badge text={contentType} className="bg-red-600/80 text-white" />
                         {isSeries && <Badge text={`S${effectiveSeason} • E${effectiveEpisode}`} className="bg-sky-600/80 text-white" />}
                       </div>
-                      <h1 className="break-words text-2xl font-black leading-tight text-white sm:text-4xl lg:text-6xl">{title}</h1>
-                      <div className="flex flex-wrap items-center gap-3 text-sm text-gray-200 sm:text-base">
+                      <h1 className="break-words text-2xl font-black leading-tight text-white min-[380px]:text-3xl sm:text-4xl lg:text-6xl">{title}</h1>
+                      <div className="flex flex-wrap items-center gap-2 text-sm text-gray-200 sm:gap-3 sm:text-base">
                         <span className="inline-flex items-center gap-1">
                           <Star className="h-4 w-4 fill-yellow-500 text-yellow-500" />
                           {movie.vote_average.toFixed(1)}
@@ -570,10 +570,10 @@ export default function ModernMovieDetailsModal({
                   whileTap={{ scale: 0.95 }}
                   onClick={handlePlayClick}
                   disabled={isPlayerLoading}
-                  className="absolute left-1/2 top-1/2 z-10 flex h-20 w-20 -translate-x-1/2 -translate-y-1/2 items-center justify-center rounded-full bg-white text-black shadow-2xl transition-all hover:bg-gray-100 disabled:opacity-50 sm:h-24 sm:w-24"
+                  className="absolute left-1/2 top-[58%] z-10 flex h-16 w-16 -translate-x-1/2 -translate-y-1/2 items-center justify-center rounded-full bg-white text-black shadow-2xl transition-all hover:bg-gray-100 disabled:opacity-50 sm:top-1/2 sm:h-24 sm:w-24"
                   aria-label={`Play ${title}`}
                 >
-                  {isPlayerLoading ? <LoaderCircle className="h-9 w-9 animate-spin" /> : <Play className="ml-1 h-9 w-9 fill-black" />}
+                  {isPlayerLoading ? <LoaderCircle className="h-7 w-7 animate-spin sm:h-9 sm:w-9" /> : <Play className="ml-1 h-7 w-7 fill-black sm:h-9 sm:w-9" />}
                 </motion.button>
               </div>
             )}
@@ -590,9 +590,9 @@ export default function ModernMovieDetailsModal({
           </div>
 
           <div className="relative z-0 bg-black">
-            <div className="grid gap-8 px-4 pt-6 pb-6 sm:px-6 sm:pt-8 lg:grid-cols-[minmax(0,1fr)] lg:px-8">
+            <div className="grid gap-6 px-3 pt-5 pb-6 sm:gap-8 sm:px-6 sm:pt-8 lg:grid-cols-[minmax(0,1fr)] lg:px-8">
               <div className="flex flex-col gap-5">
-                <div className="relative z-0 rounded-2xl border border-white/10 bg-white/5 p-4">
+                <div className="relative z-0 rounded-2xl border border-white/10 bg-white/5 p-3 sm:p-4">
                   <div className="flex flex-col gap-5">
                     <div className="grid grid-cols-2 gap-3 sm:flex sm:flex-wrap sm:items-center">
                     <button

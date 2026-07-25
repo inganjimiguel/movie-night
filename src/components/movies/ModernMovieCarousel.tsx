@@ -112,24 +112,24 @@ export default function ModernMovieCarousel({
   };
 
   return (
-    <section className={`space-y-6 ${className}`}>
+    <section className={`space-y-4 sm:space-y-6 ${className}`}>
       {/* Header */}
-      <div className="px-4 sm:px-6 lg:px-8">
-        <div className="flex items-center justify-between rounded-[28px] border border-white/10 bg-black/45 px-5 py-5 shadow-2xl shadow-black/25 backdrop-blur-xl sm:px-6">
-          <div className="space-y-2">
+      <div className="px-3 sm:px-6 lg:px-8">
+        <div className="flex items-center justify-between rounded-2xl border border-white/10 bg-black/45 px-4 py-4 shadow-2xl shadow-black/25 backdrop-blur-xl sm:rounded-[28px] sm:px-6 sm:py-5">
+          <div className="min-w-0 space-y-1.5 sm:space-y-2">
             <div className="flex items-center gap-3">
               {title.includes('Trending') && (
-                <TrendingUp className="w-6 h-6 text-red-600" />
+                <TrendingUp className="h-5 w-5 shrink-0 text-red-600 sm:h-6 sm:w-6" />
               )}
               {title.includes('Popular') && (
-                <Sparkles className="w-6 h-6 text-yellow-500" />
+                <Sparkles className="h-5 w-5 shrink-0 text-yellow-500 sm:h-6 sm:w-6" />
               )}
-              <h2 className="text-2xl font-bold text-white sm:text-3xl lg:text-4xl">
+              <h2 className="min-w-0 text-xl font-bold leading-tight text-white sm:text-3xl lg:text-4xl">
                 {title}
               </h2>
             </div>
             {subtitle && (
-              <p className="max-w-2xl text-sm text-gray-400 sm:text-base">
+              <p className="max-w-2xl text-xs leading-5 text-gray-400 sm:text-base">
                 {subtitle}
               </p>
             )}
@@ -179,7 +179,7 @@ export default function ModernMovieCarousel({
               whileHover={{ scale: 1.05 }}
               whileTap={{ scale: 0.95 }}
               onClick={() => scroll('left')}
-              className="absolute left-14 top-1/2 z-20 rounded-full border border-white/10 bg-black/80 p-2 text-white backdrop-blur-sm sm:hidden"
+              className="absolute left-2 top-1/2 z-20 rounded-full border border-white/10 bg-black/80 p-2 text-white backdrop-blur-sm sm:hidden"
             >
               <ChevronLeft className="w-4 h-4" />
             </motion.button>
@@ -205,7 +205,7 @@ export default function ModernMovieCarousel({
         {/* Movie Cards Container */}
         <div
           ref={carouselRef}
-          className="flex gap-3 overflow-x-auto scrollbar-hide pb-4 pl-16 pr-4 sm:gap-4 sm:pl-20 sm:pr-6 lg:gap-6 lg:pl-24 lg:pr-8"
+          className="scrollbar-hide flex gap-3 overflow-x-auto px-3 pb-4 sm:gap-4 sm:px-6 lg:gap-6 lg:px-8"
           onScroll={handleScroll}
           onMouseDown={handleMouseDown}
           onMouseMove={handleMouseMove}
@@ -237,12 +237,12 @@ export default function ModernMovieCarousel({
         </div>
 
         {/* Gradient Edges */}
-        <div className="pointer-events-none absolute bottom-0 left-0 top-0 z-10 w-20 bg-gradient-to-r from-black via-black/70 to-transparent sm:w-24" />
-        <div className="absolute right-0 top-0 bottom-0 w-8 sm:w-12 bg-gradient-to-l from-black via-black/50 to-transparent pointer-events-none z-10" />
+        <div className="pointer-events-none absolute bottom-0 left-0 top-0 z-10 w-8 bg-gradient-to-r from-black via-black/60 to-transparent sm:w-16" />
+        <div className="pointer-events-none absolute bottom-0 right-0 top-0 z-10 w-8 bg-gradient-to-l from-black via-black/50 to-transparent sm:w-12" />
       </div>
 
       {/* Scroll Progress Indicator */}
-      <div className="px-4 sm:px-6 lg:px-8">
+      <div className="px-3 sm:px-6 lg:px-8">
         <div className="h-1 w-full overflow-hidden rounded-full bg-white/10">
           <motion.div
             className="h-full bg-gradient-to-r from-red-600 to-red-500"

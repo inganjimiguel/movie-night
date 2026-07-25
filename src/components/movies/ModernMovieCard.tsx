@@ -26,18 +26,18 @@ interface ModernMovieCardProps {
 
 const sizeConfig = {
   small: {
-    poster: 'w-[120px] h-[180px]',
-    backdrop: 'w-[200px] h-[112px]',
+    poster: 'w-[112px] aspect-[2/3] min-[380px]:w-[124px]',
+    backdrop: 'w-[180px] aspect-video min-[380px]:w-[200px]',
     titleSize: 'text-xs',
   },
   medium: {
-    poster: 'w-full max-w-[160px] aspect-[2/3] sm:w-[200px] sm:max-w-[200px] sm:h-[300px]',
-    backdrop: 'w-[300px] h-[169px] sm:w-[400px] sm:h-[225px]',
+    poster: 'w-[44vw] max-w-[164px] aspect-[2/3] sm:w-[200px] sm:max-w-[200px]',
+    backdrop: 'w-[78vw] max-w-[320px] aspect-video sm:w-[400px] sm:max-w-none',
     titleSize: 'text-sm sm:text-base',
   },
   large: {
-    poster: 'w-[200px] h-[300px] sm:w-[240px] sm:h-[360px]',
-    backdrop: 'w-[400px] h-[225px] sm:w-[500px] sm:h-[281px]',
+    poster: 'w-[52vw] max-w-[200px] aspect-[2/3] sm:w-[240px] sm:max-w-none',
+    backdrop: 'w-[84vw] max-w-[420px] aspect-video sm:w-[500px] sm:max-w-none',
     titleSize: 'text-base sm:text-lg',
   },
 } as const;
@@ -195,7 +195,7 @@ export default function ModernMovieCard({
         ref={cardRef}
         type="button"
         className={`relative ${config[layout]} ${layout === 'poster' ? 'aspect-[2/3]' : 'aspect-video'} group text-left ${className}`}
-        whileHover={{ scale: layout === 'poster' ? 1.04 : 1.02, y: -4 }}
+        whileHover={{ scale: layout === 'poster' ? 1.03 : 1.015, y: -3 }}
         whileTap={{ scale: 0.98 }}
         onMouseEnter={handlePointerEnter}
         onMouseLeave={handlePointerLeave}
@@ -226,19 +226,19 @@ export default function ModernMovieCard({
 
           <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/20 to-black/10" />
 
-          <div className="absolute left-2 top-2 z-20">
+          <div className="absolute left-1.5 top-1.5 z-20 sm:left-2 sm:top-2">
             <div
-              className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-[11px] font-semibold shadow-lg backdrop-blur-md ${contentTypeStyles[contentType].className}`}
+              className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-semibold shadow-lg backdrop-blur-md sm:gap-1.5 sm:px-2.5 sm:py-1 sm:text-[11px] ${contentTypeStyles[contentType].className}`}
               title={contentType}
             >
-              <ContentTypeIcon className="h-3.5 w-3.5" />
-              <span>{contentType}</span>
+              <ContentTypeIcon className="h-3 w-3 sm:h-3.5 sm:w-3.5" />
+              <span className="max-w-[4.5rem] truncate sm:max-w-none">{contentType}</span>
             </div>
           </div>
 
-          <div className="absolute right-2 top-2 z-20 flex gap-1.5">
-            <Badge text="HD" className="border border-white/15 bg-black/40 px-2 py-1 text-xs text-white backdrop-blur-md" />
-            {movie.vote_average > 7 && <Badge text="TOP" className="bg-red-600/75 px-2 py-1 text-xs text-white" />}
+          <div className="absolute right-1.5 top-1.5 z-20 flex gap-1 sm:right-2 sm:top-2 sm:gap-1.5">
+            <Badge text="HD" className="border border-white/15 bg-black/40 px-1.5 py-0.5 text-[10px] text-white backdrop-blur-md sm:px-2 sm:py-1 sm:text-xs" />
+            {movie.vote_average > 7 && <Badge text="TOP" className="bg-red-600/75 px-1.5 py-0.5 text-[10px] text-white sm:px-2 sm:py-1 sm:text-xs" />}
           </div>
 
           <AnimatePresence>

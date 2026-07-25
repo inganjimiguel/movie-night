@@ -97,28 +97,28 @@ export default function ModernFeaturedHero({
 
   return (
     <section ref={heroRef} className="px-3 sm:px-6 lg:px-8">
-      <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_minmax(420px,0.95fr)] lg:gap-5">
+      <div className="grid gap-3 sm:gap-4 lg:grid-cols-[minmax(0,1fr)_minmax(420px,0.95fr)] lg:gap-5">
         <motion.div
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.35 }}
-          className="relative overflow-hidden rounded-[32px] border border-white/10 bg-black/55 p-6 shadow-2xl shadow-black/30 backdrop-blur-xl sm:p-8"
+          className="relative overflow-hidden rounded-2xl border border-white/10 bg-black/55 p-4 shadow-2xl shadow-black/30 backdrop-blur-xl sm:rounded-[32px] sm:p-8"
         >
           <div className="absolute inset-0 bg-[radial-gradient(circle_at_top,_rgba(185,28,28,0.18),_transparent_48%)]" />
           <div className="relative z-10 flex h-full flex-col justify-between gap-6">
-            <div className="space-y-5">
+            <div className="space-y-4 sm:space-y-5">
               <div className="flex flex-wrap items-center gap-2 sm:gap-3">
-                <Badge text="FEATURED" className="rounded-full bg-red-600 px-3 py-1 text-xs font-bold tracking-[0.2em] text-white" />
-                <Badge text="HD" className="rounded-full border border-white/15 bg-white/10 px-3 py-1 text-xs font-semibold tracking-[0.2em] text-white" />
-                <Badge text={typeLabel.toUpperCase()} className="rounded-full border border-white/15 bg-white/10 px-3 py-1 text-xs font-semibold tracking-[0.2em] text-white" />
+                <Badge text="FEATURED" className="rounded-full bg-red-600 px-2.5 py-1 text-[10px] font-bold tracking-[0.16em] text-white sm:px-3 sm:text-xs sm:tracking-[0.2em]" />
+                <Badge text="HD" className="rounded-full border border-white/15 bg-white/10 px-2.5 py-1 text-[10px] font-semibold tracking-[0.16em] text-white sm:px-3 sm:text-xs sm:tracking-[0.2em]" />
+                <Badge text={typeLabel.toUpperCase()} className="rounded-full border border-white/15 bg-white/10 px-2.5 py-1 text-[10px] font-semibold tracking-[0.16em] text-white sm:px-3 sm:text-xs sm:tracking-[0.2em]" />
               </div>
 
-              <div className="space-y-4">
-                <h2 className="break-words text-3xl font-black leading-tight tracking-tight text-white sm:text-5xl sm:leading-[0.95] lg:text-6xl">
+              <div className="space-y-3 sm:space-y-4">
+                <h2 className="break-words text-2xl font-black leading-tight tracking-tight text-white min-[380px]:text-3xl sm:text-5xl sm:leading-[0.95] lg:text-6xl">
                   {title}
                 </h2>
 
-                <div className="flex flex-wrap items-center gap-3 text-sm sm:text-base">
+                <div className="flex flex-wrap items-center gap-2 text-xs sm:gap-3 sm:text-base">
                   <div className="flex items-center gap-2 rounded-full border border-white/10 bg-white/5 px-3 py-1.5 text-white">
                     <Star className="h-4 w-4 fill-yellow-500 text-yellow-500" />
                     <span className="font-semibold">{movie.vote_average.toFixed(1)}</span>
@@ -135,7 +135,7 @@ export default function ModernFeaturedHero({
                 </div>
               </div>
 
-              <p className="max-w-2xl text-sm leading-7 text-gray-300 sm:text-base lg:text-lg">
+              <p className="line-clamp-3 max-w-2xl text-sm leading-6 text-gray-300 sm:line-clamp-none sm:text-base sm:leading-7 lg:text-lg">
                 {movie.overview}
               </p>
             </div>
@@ -145,7 +145,7 @@ export default function ModernFeaturedHero({
                 whileHover={{ scale: 1.03 }}
                 whileTap={{ scale: 0.97 }}
                 onClick={onPlay}
-                className="inline-flex min-h-11 items-center gap-3 rounded-full bg-white px-5 py-3 text-sm font-bold text-black shadow-lg shadow-black/30 transition-colors hover:bg-gray-100 sm:px-8 sm:py-4 sm:text-base"
+                className="inline-flex min-h-11 w-full items-center justify-center gap-3 rounded-full bg-white px-5 py-3 text-sm font-bold text-black shadow-lg shadow-black/30 transition-colors hover:bg-gray-100 sm:w-auto sm:px-8 sm:py-4 sm:text-base"
               >
                 <Play className="h-5 w-5 fill-black" />
                 <span>{playLabel}</span>
@@ -158,9 +158,9 @@ export default function ModernFeaturedHero({
           initial={{ opacity: 0, y: 24 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.4, delay: 0.08 }}
-          className="relative overflow-hidden rounded-[32px] border border-white/10 bg-black/55 shadow-2xl shadow-black/30 backdrop-blur-xl"
+          className="relative overflow-hidden rounded-2xl border border-white/10 bg-black/55 shadow-2xl shadow-black/30 backdrop-blur-xl sm:rounded-[32px]"
         >
-          <div className="relative aspect-[16/10] min-h-[280px] w-full bg-black lg:min-h-[520px]">
+          <div className="relative aspect-[16/11] min-h-[220px] w-full bg-black min-[420px]:min-h-[260px] sm:aspect-[16/10] sm:min-h-[280px] lg:min-h-[520px]">
             <img
               src={getImageUrl(movie.backdrop_path || movie.poster_path, 'original')}
               alt={title}
@@ -181,7 +181,7 @@ export default function ModernFeaturedHero({
             )}
 
             <div className="pointer-events-none absolute inset-0 bg-gradient-to-t from-black/75 via-black/20 to-transparent" />
-            <div className="pointer-events-none absolute bottom-4 left-4 right-4 rounded-2xl border border-white/10 bg-black/50 px-4 py-3 text-sm text-gray-200 backdrop-blur-md">
+            <div className="pointer-events-none absolute bottom-3 left-3 right-3 rounded-xl border border-white/10 bg-black/50 px-3 py-2 text-xs leading-5 text-gray-200 backdrop-blur-md sm:bottom-4 sm:left-4 sm:right-4 sm:rounded-2xl sm:px-4 sm:py-3 sm:text-sm">
               {trailerStatus}
             </div>
           </div>
