@@ -18,7 +18,7 @@ export default function DynamicSEO({
       let title = 'Movie Night - Watch Free Movies Online | Stream Latest Films';
       let description = 'Watch the latest movies online for free! Movie Night offers unlimited streaming of popular films, blockbusters, and hidden gems.';
       let keywords = 'watch movies online, free movie streaming, latest films, HD movies, online cinema, movie night';
-      let url = 'https://movienight.com';
+      let url = 'https://movienight.giize.com';
       
       switch (currentPage) {
         case 'search':

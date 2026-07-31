@@ -305,7 +305,7 @@ export default function ModernMovieCard({
                   />
                 ) : (
                   <div className="relative h-full w-full">
-                    <img src={getImageUrl(movie.backdrop_path || movie.poster_path, 'original')} alt={title} className="h-full w-full object-cover" />
+                    <img src={getImageUrl(movie.backdrop_path || movie.poster_path, 'original')} alt={title} loading="lazy" className="h-full w-full object-cover" />
                     <div className="absolute inset-0 bg-gradient-to-t from-black via-black/50 to-black/20" />
                     <div className="absolute inset-0 flex items-center justify-center">
                       <div className="rounded-full border border-white/15 bg-black/45 px-4 py-2 text-sm text-white backdrop-blur-md">

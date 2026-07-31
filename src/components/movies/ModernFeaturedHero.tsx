@@ -164,6 +164,7 @@ export default function ModernFeaturedHero({
             <img
               src={getImageUrl(movie.backdrop_path || movie.poster_path, 'original')}
               alt={title}
+              loading="eager"
               className={`absolute inset-0 h-full w-full object-cover transition-opacity duration-500 ${activeTrailerUrl && isIframeReady ? 'opacity-0' : 'opacity-100'}`}
             />
 

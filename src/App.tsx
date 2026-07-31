@@ -6,6 +6,7 @@ import { ContinueWatchingProvider } from './contexts/ContinueWatchingContext';
 import { MediaLibraryProvider } from './contexts/MediaLibraryContext';
 import AppRouter from './components/layout/AppRouter';
 import SEOHead from './components/seo/SEOHead';
+import BreadcrumbSEO from './components/seo/BreadcrumbSEO';
 import Footer from './components/layout/Footer';
 import GoogleAnalytics from './components/analytics/GoogleAnalytics';
 
@@ -51,11 +52,15 @@ export default function App() {
       <GoogleAnalytics pageTitle={pageSeo.title} />
 
       <SEOHead
+        key={location.pathname}
         title={pageSeo.title}
         description={pageSeo.description}
         keywords={pageSeo.keywords}
         url={`https://movienight.giize.com${location.pathname}`}
       />
+      {location.pathname !== '/' && (
+        <BreadcrumbSEO items={getBreadcrumbs(location.pathname)} />
+      )}
 
       <motion.button
         initial={{ opacity: 0, y: -16, scale: 0.96 }}
@@ -222,6 +227,20 @@ function getPageSeo(pathname: string) {
         keywords: 'watch movies online, movie night picks, TV shows online, animation streaming, movie trailers'
       };
   }
+}
+
+function getBreadcrumbs(pathname: string) {
+  const parts = pathname.split('/').filter(Boolean);
+  const crumbs = [{ name: 'Home', url: 'https://movienight.giize.com/' }];
+  let accumulated = '';
+  for (const part of parts) {
+    accumulated += `/${part}`;
+    crumbs.push({
+      name: toTitleFromSlug(part),
+      url: `https://movienight.giize.com${accumulated}`,
+    });
+  }
+  return crumbs;
 }
 
 function toTitleFromSlug(slug: string) {

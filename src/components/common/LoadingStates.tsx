@@ -176,11 +176,12 @@ interface ProgressiveImageProps {
   src: string;
   alt: string;
   className?: string;
+  loading?: 'lazy' | 'eager';
   onLoad?: () => void;
   onError?: () => void;
 }
 
-export function ProgressiveImage({ src, alt, className, onLoad, onError }: ProgressiveImageProps) {
+export function ProgressiveImage({ src, alt, className, loading = 'lazy', onLoad, onError }: ProgressiveImageProps) {
   const [isLoaded, setIsLoaded] = useState(false);
   const [hasError, setHasError] = useState(false);
 
@@ -207,6 +208,7 @@ export function ProgressiveImage({ src, alt, className, onLoad, onError }: Progr
       <img
         src={src}
         alt={alt}
+        loading={loading}
         className={`w-full h-full object-cover transition-opacity duration-300 ${
           isLoaded ? 'opacity-100' : 'opacity-0'
         }`}

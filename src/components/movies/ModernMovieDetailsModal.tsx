@@ -518,7 +518,7 @@ export default function ModernMovieDetailsModal({
               </div>
             ) : (
               <div className="relative z-0 mx-auto aspect-[4/5] w-full max-w-6xl overflow-hidden rounded-b-[1.25rem] bg-black min-[420px]:aspect-[16/11] sm:aspect-video sm:rounded-b-[1.5rem]">
-                <img src={getImageUrl(heroImagePath || movie.backdrop_path, 'original')} alt={title} className="h-full w-full object-cover" />
+                <img src={getImageUrl(heroImagePath || movie.backdrop_path, 'original')} alt={title} loading="eager" className="h-full w-full object-cover" />
                 <div className="absolute inset-0 bg-gradient-to-t from-black via-black/50 to-black/60" />
 
                 <div className="absolute inset-0 p-4 pt-14 sm:p-8 lg:p-12">

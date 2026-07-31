@@ -80,6 +80,7 @@ export default function SearchResultsSection({
                 <img
                   src={getImageUrl(item.poster_path)}
                   alt={title}
+                  loading="lazy"
                   className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-110"
                   onError={(e) => {
                     e.currentTarget.src = 'data:image/svg+xml,%3Csvg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 400 600"%3E%3Crect fill="%23374151" width="400" height="600"/%3E%3C/svg%3E';

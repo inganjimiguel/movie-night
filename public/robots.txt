@@ -2,7 +2,7 @@ User-agent: *
 Allow: /
 
 # Sitemap
-Sitemap: https://movienight.com/sitemap.xml
+Sitemap: https://movienight.giize.com/sitemap.xml
 
 # Public app routes
 Allow: /movies

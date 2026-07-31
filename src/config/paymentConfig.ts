@@ -18,16 +18,16 @@ export const PAYMENT_CONFIG = {
     API_KEY: process.env.REACT_APP_MOMOPAY_API_KEY || 'YOUR_MOMOPAY_API_KEY',
     MERCHANT_ID: process.env.REACT_APP_MOMOPAY_MERCHANT_ID || 'YOUR_MOMOPAY_MERCHANT_ID',
     SECRET_KEY: process.env.REACT_APP_MOMOPAY_SECRET_KEY || 'YOUR_MOMOPAY_SECRET_KEY',
-    CALLBACK_URL: process.env.REACT_APP_MOMOPAY_CALLBACK_URL || 'https://movienight.com/payment/callback',
+    CALLBACK_URL: process.env.REACT_APP_MOMOPAY_CALLBACK_URL || 'https://movienight.giize.com/payment/callback',
     ENVIRONMENT: process.env.REACT_APP_MOMOPAY_ENV || 'test', // 'test' or 'production'
   },
 
   // General Payment Settings
   SETTINGS: {
     CURRENCY: 'USD',
-    SUCCESS_URL: 'https://movienight.com/payment/success',
-    CANCEL_URL: 'https://movienight.com/payment/cancel',
-    WEBHOOK_URL: 'https://movienight.com/api/payment/webhook',
+    SUCCESS_URL: 'https://movienight.giize.com/payment/success',
+    CANCEL_URL: 'https://movienight.giize.com/payment/cancel',
+    WEBHOOK_URL: 'https://movienight.giize.com/api/payment/webhook',
     TIMEOUT: 30000, // 30 seconds
     RETRY_ATTEMPTS: 3,
   }
