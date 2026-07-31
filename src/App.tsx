@@ -1,6 +1,6 @@
-import { lazy, Suspense, useEffect, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
-import { ChevronDown, ChevronUp, Heart, Sparkles } from 'lucide-react';
+import { ChevronDown, ChevronUp } from 'lucide-react';
 import { useLocation } from 'react-router-dom';
 import { ContinueWatchingProvider } from './contexts/ContinueWatchingContext';
 import { MediaLibraryProvider } from './contexts/MediaLibraryContext';
@@ -10,13 +10,10 @@ import BreadcrumbSEO from './components/seo/BreadcrumbSEO';
 import Footer from './components/layout/Footer';
 import GoogleAnalytics from './components/analytics/GoogleAnalytics';
 
-const DonationModal = lazy(() => import('./components/payments/DonationModal'));
-
 export default function App() {
   const location = useLocation();
   const isHomePage = location.pathname === '/';
   const pageSeo = getPageSeo(location.pathname);
-  const [isDonationModalOpen, setIsDonationModalOpen] = useState(false);
   const [showScrollUpButton, setShowScrollUpButton] = useState(false);
   const [showScrollDownButton, setShowScrollDownButton] = useState(true);
 
@@ -60,37 +57,6 @@ export default function App() {
       />
       {location.pathname !== '/' && (
         <BreadcrumbSEO items={getBreadcrumbs(location.pathname)} />
-      )}
-
-      <motion.button
-        initial={{ opacity: 0, y: -16, scale: 0.96 }}
-        animate={{ opacity: 1, y: 0, scale: 1 }}
-        whileHover={{ scale: 1.03, y: -2 }}
-        whileTap={{ scale: 0.97 }}
-        className="group fixed right-3 top-[calc(env(safe-area-inset-top,0px)+68px)] z-[180] flex max-w-[calc(100vw-24px)] items-center gap-2 overflow-hidden rounded-full border border-red-200/20 bg-[linear-gradient(135deg,rgba(220,38,38,0.96),rgba(127,29,29,0.96))] px-2 py-2 text-left shadow-[0_16px_40px_rgba(127,29,29,0.35)] backdrop-blur-xl sm:right-5 sm:top-[calc(env(safe-area-inset-top,0px)+84px)] sm:gap-3 sm:px-4 sm:py-3"
-        onClick={() => setIsDonationModalOpen(true)}
-        aria-label="Open support us popup"
-      >
-        <span className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_top,rgba(255,255,255,0.26),transparent_52%)] opacity-80" />
-        <span className="relative flex h-9 w-9 items-center justify-center rounded-full border border-white/20 bg-white/14 shadow-inner shadow-white/10 sm:h-10 sm:w-10">
-          <Heart className="h-[18px] w-[18px] fill-white text-white sm:h-5 sm:w-5" />
-        </span>
-        <span className="relative hidden min-w-0 flex-col min-[420px]:flex">
-          <span className="flex items-center gap-1 text-[10px] font-semibold uppercase tracking-[0.28em] text-red-100/80">
-            <Sparkles className="h-3 w-3" />
-            Keep it rolling
-          </span>
-          <span className="truncate text-sm font-extrabold text-white sm:text-base">Support us</span>
-        </span>
-      </motion.button>
-
-      {isDonationModalOpen && (
-        <Suspense fallback={null}>
-          <DonationModal
-            isOpen={isDonationModalOpen}
-            onClose={() => setIsDonationModalOpen(false)}
-          />
-        </Suspense>
       )}
 
       <AnimatePresence>

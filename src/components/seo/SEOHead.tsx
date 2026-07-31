@@ -14,7 +14,7 @@ interface SEOHeadProps {
 export default function SEOHead({
   title = 'Movie Night - Watch Free Movies Online | Stream Latest Films',
   description = 'Watch the latest movies online for free! Movie Night offers unlimited streaming of popular films, blockbusters, and hidden gems. Enjoy HD quality movies with no subscription required.',
-  keywords = 'watch movies online, free movie streaming, latest films, HD movies, online cinema, movie night, free films, watch movies free, stream movies, latest movies 2024, popular films, donate movies, support cinema, movie donations, independent films, film funding',
+  keywords = 'watch movies online, free movie streaming, latest films, HD movies, online cinema, movie night, free films, watch movies free, stream movies, latest movies 2024, popular films, independent films',
   image = '/og-image.jpg',
   url = 'https://movienight.giize.com',
   type = 'website',

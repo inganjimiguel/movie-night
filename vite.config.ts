@@ -27,7 +27,6 @@ export default defineConfig(({mode}) => {
             react: ['react', 'react-dom', 'react-router-dom'],
             motion: ['motion'],
             icons: ['lucide-react'],
-            payments: ['flutterwave-react-v3'],
           },
         },
       },
